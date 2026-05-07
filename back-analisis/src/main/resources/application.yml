@@ -4,6 +4,8 @@ server:
 spring:
   application:
     name: solution-back
+  profiles:
+    active: local
 
   datasource:
     url: jdbc:postgresql://localhost:5432/solution_seguros
@@ -17,25 +19,17 @@ spring:
 
   ai:
     openai:
-      api-key: ${GROQ_API_KEY}
-      base-url: https://api.groq.com/openai
+      api-key: ${GEMINI_API_KEY}
+      base-url: https://generativelanguage.googleapis.com/v1beta/openai
       chat:
-        enabled: false
+        enabled: true
         options:
-          model: llama-3.3-70b-versatile
-        embedding:
-          enabled: false
-
-    ollama:
-      base-url: http://localhost:11434
-      chat:
-        options:
-          model: llama3:latest
+          model: models/gemini-3-flash-preview
       embedding:
         enabled: true
         options:
-          model: nomic-embed-text
-
+          model: models/gemini-embedding-001
+          dimensions: 768
 
     vectorstore:
       pgvector:

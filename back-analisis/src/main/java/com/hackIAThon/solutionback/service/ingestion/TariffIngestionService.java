@@ -41,7 +41,15 @@ public class TariffIngestionService implements CommandLineRunner {
     }
 
     @Override
-    public void run(String... args) throws Exception {
+    public void run(String... args) {
+        try {
+            runIngestion();
+        } catch (Exception e) {
+            log.error("Tariff ingestion failed — app will still start, but RAG queries may not work: {}", e.getMessage());
+        }
+    }
+
+    private void runIngestion() {
         TokenTextSplitter splitter = new TokenTextSplitter();
 
         List<Resource> pdfResources = List.of(tarifario);

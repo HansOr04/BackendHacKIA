@@ -129,7 +129,7 @@ public class RagQueryService {
 
             if (results.isEmpty()) return null;
 
-            Document doc = results.getFirst();
+            Document doc = results.get(0);
             String source = (String) doc.getMetadata().getOrDefault("source", null);
             String page   = doc.getMetadata().getOrDefault("page_number", "").toString();
 
