@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.reader.pdf.PagePdfDocumentReader;
 import org.springframework.ai.transformer.splitter.TokenTextSplitter;
+import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
@@ -52,17 +53,32 @@ public class TariffIngestionService implements CommandLineRunner {
                 continue;
             }
 
-            log.info("Indexing PDF: {}", pdf.getFilename());
+            // Opción A: Evitar re-crear chunks si el archivo ya fue indexado
+            String filename = pdf.getFilename();
+            List<Document> existing = vectorStore.similaritySearch(
+                    SearchRequest.builder()
+                            .query("información") // consulta genérica para activar la búsqueda
+                            .topK(1)
+                            .filterExpression("source == '" + filename + "'")
+                            .build()
+            );
+
+            if (!existing.isEmpty()) {
+                log.info("PDF {} already indexed in VectorStore. Skipping.", filename);
+                continue;
+            }
+
+            log.info("Indexing PDF: {}", filename);
             var reader = new PagePdfDocumentReader(pdf);
             List<Document> chunks = splitter.apply(reader.get());
 
             // Enriquecer metadata con nombre del archivo fuente para trazabilidad
             chunks.forEach(doc ->
-                doc.getMetadata().put("source", pdf.getFilename())
+                doc.getMetadata().put("source", filename)
             );
 
             allChunks.addAll(chunks);
-            log.info("  → {} chunks generated from {}", chunks.size(), pdf.getFilename());
+            log.info("  → {} chunks generated from {}", chunks.size(), filename);
         }
 
         if (!allChunks.isEmpty()) {
