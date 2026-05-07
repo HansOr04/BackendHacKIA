@@ -64,11 +64,11 @@ CRITERIO-2.3: Incluye fragmento del reporte que justifica o refuta el cobro
 ```
 
 ### Reglas de Negocio
-1. La validación de coherencia se realiza mediante LLM: compara descripción del concepto vs reporte de siniestro.
+1. La validación de coherencia se realiza mediante el `LlmAnalysisService` interno (via `ChatClient` de Spring AI): compara descripción del concepto vs reporte de siniestro.
 2. Un concepto es `UNJUSTIFIED` si el LLM determina que no guarda relación con el daño reportado.
 3. El LLM debe extraer y retornar el fragmento exacto del reporte que justifica o refuta cada concepto (`claimExcerpt`).
 4. El análisis es case-insensitive y considera sinónimos semánticos.
-5. Si el LLM no responde → fallback: marcar línea como `UNJUSTIFIED`, no lanzar excepción al cliente.
+5. Si el `ChatClient` no responde → fallback: marcar línea como `UNJUSTIFIED`, no lanzar excepción al cliente.
 6. Usar `BigDecimal` para montos — nunca `double`.
 
 ---
@@ -118,21 +118,19 @@ CRITERIO-2.3: Incluye fragmento del reporte que justifica o refuta el cobro
 }
 ```
 - **Response 404**: Factura o siniestro no encontrado
-- **Response 503**: Fallo al contactar LLM
+- **Response 503**: Fallo interno del ChatClient / LlmAnalysisService
 
 ### Capas de Implementación
 
 #### DTO (Java 21 Records)
 - `JustifiedLineResponse` — línea con status, fragmento de evidencia y análisis narrativo
 - `JustificationResultResponse` — resultado consolidado: invoiceId, justifiedLines, totalUnjustified
-- `LlmJustificationRequest` — request al LLM con descripción del concepto y reporte del siniestro
-- `LlmJustificationResponse` — respuesta del LLM: status, claimExcerpt, narrativeAnalysis
 
 #### Service
 - `JustificationService`
   - `analyzeJustification(Long invoiceId)` — orquesta análisis completo de todas las líneas
   - `fetchClaimReport(Long claimId)` — obtiene el reporte de siniestro desde BD
-  - `analyzeLine(InvoiceLine line, String claimReport)` — consulta LLM por línea, retorna LlmJustificationResponse
+  - `analyzeLine(InvoiceLine line, String claimReport)` — delega a `LlmAnalysisService` interno (ChatClient), retorna status, claimExcerpt y narrativeAnalysis
   - `persistJustificationFindings(Long invoiceId, List<Finding> findings)` — persiste hallazgos
 
 #### Controller
@@ -141,19 +139,12 @@ CRITERIO-2.3: Incluye fragmento del reporte que justifica o refuta el cobro
   - Inyecta `JustificationService` por constructor
   - Retorna `JustificationResultResponse`
 
-#### Config
-- `JustificationConfig`
-  - Bean `WebClient` para LLM
-  - Propiedades en `application.yml`: `llm.justify.url`, timeout 5s
 
-### Integración con Servicios Externos
-| Servicio | Endpoint | Método | Propósito |
-|----------|----------|--------|-----------|
-| LLM | `/v1/llm/analyze-relevance` | POST | Analizar coherencia concepto vs reporte siniestro |
 
 ### Notas de Implementación
-- `claimExcerpt` es el fragmento exacto retornado por el LLM — no modificar
-- Si LLM no responde → fallback: estado `UNJUSTIFIED`, `claimExcerpt` null
+- `claimExcerpt` es el fragmento exacto retornado por el `LlmAnalysisService` — no modificar
+- Si el `ChatClient` no responde → fallback: estado `UNJUSTIFIED`, `claimExcerpt` null
+- Toda interacción con el LLM se realiza en `service/llm/LlmAnalysisService` — nunca llamar al `ChatClient` desde `JustificationService` directamente
 - DTOs como Java 21 Records con Bean Validation
 - Inyección por constructor en todos los componentes
 
@@ -166,8 +157,6 @@ CRITERIO-2.3: Incluye fragmento del reporte que justifica o refuta el cobro
 ### DTO
 - [ ] Crear `JustifiedLineResponse` (Record): `lineId, description, status, claimExcerpt, narrativeAnalysis`
 - [ ] Crear `JustificationResultResponse` (Record): `invoiceId, justifiedLines, totalUnjustified`
-- [ ] Crear `LlmJustificationRequest` (Record): `conceptDescription, claimReport`
-- [ ] Crear `LlmJustificationResponse` (Record): `status, claimExcerpt, narrativeAnalysis`
 
 ### Service
 - [ ] Actualizar entidad `Finding` con campos: `claimExcerpt, narrativeAnalysis`
@@ -178,6 +167,4 @@ CRITERIO-2.3: Incluye fragmento del reporte que justifica o refuta el cobro
 - [ ] Inyectar `JustificationService` por constructor
 - [ ] Retornar `JustificationResultResponse` — status 200, 404 o 503
 
-### Config
-- [ ] Crear `JustificationConfig` con bean `WebClient` para LLM
-- [ ] Configurar en `application.yml`: `llm.justify.url`, timeout 5s
+

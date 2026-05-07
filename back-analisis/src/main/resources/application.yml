@@ -1,0 +1,61 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: solution-back
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/solution_seguros
+    username: postgres
+    password: postgres
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+
+  ai:
+    openai:
+      api-key: ${GROQ_API_KEY}
+      base-url: https://api.groq.com/openai
+      chat:
+        enabled: false
+        options:
+          model: llama-3.3-70b-versatile
+        embedding:
+          enabled: false
+
+    ollama:
+      base-url: http://localhost:11434
+      chat:
+        options:
+          model: llama3
+      embedding:
+        enabled: true
+        options:
+          model: nomic-embed-text
+
+
+    vectorstore:
+      pgvector:
+        initialize-schema: true
+        dimensions: 768
+        index-type: HNSW
+
+  level:
+    org:
+      apache:
+        pdfbox:
+          pdmodel:
+            font:
+              FileSystemFontProvider: ERROR
+
+
+audit:
+  approve-threshold: 70   # riskScore >= 70 → APPROVE
+  rules-version: "1.0.0"
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html

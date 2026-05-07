@@ -60,6 +60,7 @@ com.solution.seguros/
 ├── controller/        ← REST Controllers. Sin lógica de negocio.
 ├── service/
 │   ├── audit/         ← Servicios de auditoría: tarifario, duplicados, justificación, reporte.
+│   ├── ingestion/     ← Operaciones de inicialización de BD/VectorStore (ej. TariffIngestionService).
 │   ├── llm/           ← LlmExtractionService (PDF→JSON) y LlmAnalysisService (veredicto).
 │   └── rag/           ← RagQueryService: consultas al vector store (tarifario e historial).
 ├── dto/               ← Request/Response DTOs (Java 21 Records).
@@ -80,6 +81,7 @@ dto → entity → repository → service → controller → config
 | **entity/** | Clases JPA con `@Entity` y `@Table(name = "snake_case")` | Lógica de negocio, exponer al controller |
 | **repository/** | Interfaces `JpaRepository` — queries a PostgreSQL | Lógica de negocio |
 | **service/audit/** | Orquestación del flujo de auditoría, cálculos, detección de duplicados, score | Acceso HTTP directo, lógica de controller |
+| **service/ingestion/** | Ingesta, fragmentación (chunking) y vectorización de documentos (PDF a VectorStore) al arrancar | Exponerse en controllers, lógica de negocio |
 | **service/llm/** | Llamadas a OpenAI vía `ChatClient`: extracción PDF→JSON y análisis narrativo final | Lógica de negocio de auditoría |
 | **service/rag/** | Consultas al vector store pgvector: tarifas y historial de peritaje | Lógica de negocio de auditoría |
 | **controller/** | `@RestController` — recibe request, delega al service, retorna response | Lógica de negocio |
@@ -267,6 +269,36 @@ public class RagQueryService {
 }
 ```
 
+### IngestionService (VectorStore Initialization)
+
+> **Nota:** Los PDFs del tarifario (MVP) deben guardarse internamente en `src/main/resources/docs/`. Siempre usar `TokenTextSplitter` para crear *chunks* coherentes antes de guardarlos en el VectorStore.
+
+```java
+// service/ingestion/TariffIngestionService.java
+@Component
+public class TariffIngestionService implements CommandLineRunner {
+
+    private static final Logger log = LoggerFactory.getLogger(TariffIngestionService.class);
+    private final VectorStore vectorStore;
+
+    @Value("classpath:/docs/tarifario.pdf")
+    private Resource marketPDF;
+
+    public TariffIngestionService(VectorStore vectorStore) {
+        this.vectorStore = vectorStore;
+    }
+
+    @Override
+    public void run(String... args) throws Exception {
+        var pdfReader = new ParagraphPdfDocumentReader(marketPDF);
+        TextSplitter textSplitter = new TokenTextSplitter();
+        // Genera fragmentos pequeños y semánticamente coherentes
+        vectorStore.accept(textSplitter.apply(pdfReader.get()));
+        log.info("VectorStore cargado exitosamente con datos del tarifario.");
+    }
+}
+```
+
 ### Controller
 
 ```java
@@ -372,5 +404,7 @@ springdoc:
 - Hardcodear URLs, API keys o credenciales — siempre `application.yml` con variables de entorno
 - Usar `application.properties` — siempre `application.yml`
 - `@Autowired` en campo — siempre inyección por constructor
+- Poner operaciones de inicialización o ingesta del VectorStore en `service/llm/` o `service/rag/` — siempre usar `service/ingestion/`
+- Ingresar PDFs completos al VectorStore sin fragmentarlos — siempre usar un `TextSplitter` (ej. `TokenTextSplitter`)
 - Llamar al `ChatClient` fuera de `service/llm/`
-- Llamar al `VectorStore` fuera de `service/rag/`
+- Llamar al `VectorStore` fuera de `service/rag/` o `service/ingestion/`
