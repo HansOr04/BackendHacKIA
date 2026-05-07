@@ -74,7 +74,8 @@ public class LlmExtractionService {
                     .call()
                     .content();
 
-            ExtractedInvoice extracted = objectMapper.readValue(response.trim(), ExtractedInvoice.class);
+            String cleanJson = response.replaceAll("```(?:json)?", "").trim();
+            ExtractedInvoice extracted = objectMapper.readValue(cleanJson, ExtractedInvoice.class);
             log.info("LLM extracted invoice: claimId={}, workshop={}, lines={}",
                     extracted.claimId(), extracted.workshopName(), extracted.lines().size());
 
