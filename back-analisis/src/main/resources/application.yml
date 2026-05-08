@@ -6,7 +6,6 @@ spring:
     name: solution-back
   profiles:
     active: local
-
   datasource:
     url: jdbc:postgresql://localhost:5432/solution_seguros
     username: postgres
@@ -18,23 +17,25 @@ spring:
     show-sql: false
 
   ai:
+    retry:
+      max-attempts: 1
+      on-client-errors: false
     openai:
-      api-key: ${GEMINI_API_KEY}
-      base-url: https://generativelanguage.googleapis.com/v1beta/openai
+      api-key: ${NVIDIA_API_KEY}
+      base-url: https://integrate.api.nvidia.com
       chat:
         enabled: true
         options:
-          model: models/gemini-3-flash-preview
+          model: deepseek-ai/deepseek-v4-pro
       embedding:
         enabled: true
         options:
-          model: models/gemini-embedding-001
-          dimensions: 768
+          model: nvidia/nv-embedqa-e5-v5
 
     vectorstore:
       pgvector:
         initialize-schema: true
-        dimensions: 768
+        dimensions: 1024
         index-type: HNSW
 
 logging:
@@ -53,6 +54,11 @@ audit:
 jwt:
   secret: ${JWT_SECRET:dGhpcy1pcy1hLXZlcnktc3Ryb25nLXNlY3JldC1rZXktZm9yLWF1ZGl0LVNlZ3Vyb3MtMjAyNA==}
   expiration: 86400000
+
+nvidia:
+  api-key: ${NVIDIA_API_KEY}
+  base-url: https://integrate.api.nvidia.com/v1
+  model: deepseek-ai/deepseek-v4-pro
 
 springdoc:
   swagger-ui:

@@ -18,7 +18,11 @@ public class AuditReportController {
 
     @PostMapping("/invoice/{invoiceId}/report")
     public ResponseEntity<AuditReportResponse> generateReport(@PathVariable Long invoiceId) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(auditReportService.generateReport(invoiceId));
+        try {
+            return ResponseEntity.ok(auditReportService.generateReport(invoiceId));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build();
+        }
     }
 
     @GetMapping("/invoice/{invoiceId}/report")

@@ -15,11 +15,14 @@ import java.util.List;
 @Service
 public class LlmNarrativeService {
 
-    @Value("${spring.ai.openai.api-key}")
+    @Value("${nvidia.api-key}")
     private String apiKey;
 
-    @Value("${spring.ai.openai.options.model:models/gemini-3-flash-preview}")
+    @Value("${nvidia.model}")
     private String model;
+
+    @Value("${nvidia.base-url}")
+    private String baseUrl;
 
     private static final HttpClient HTTP = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(10))
@@ -47,7 +50,7 @@ public class LlmNarrativeService {
                     + "\"max_tokens\":200}";
 
             HttpRequest req = HttpRequest.newBuilder()
-                    .uri(URI.create("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"))
+                    .uri(URI.create(baseUrl + "/chat/completions"))
                     .header("Content-Type", "application/json")
                     .header("Authorization", "Bearer " + apiKey)
                     .timeout(Duration.ofSeconds(25))

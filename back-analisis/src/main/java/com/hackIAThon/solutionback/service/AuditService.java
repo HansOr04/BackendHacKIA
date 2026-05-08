@@ -49,7 +49,8 @@ public class AuditService {
 
         List<InvoiceLine> lines = invoice.getLines();
         if (lines == null || lines.isEmpty()) {
-            throw new ResourceNotFoundException("Invoice has no lines: " + invoiceId);
+            log.warn("Invoice {} has no lines — returning empty audit result.", invoiceId);
+            return new AuditResultResponse(invoiceId, List.of(), BigDecimal.ZERO, 0);
         }
 
         List<AuditLineResponse> auditedLines = new ArrayList<>();

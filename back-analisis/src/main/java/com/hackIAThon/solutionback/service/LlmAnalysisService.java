@@ -51,7 +51,12 @@ public class LlmAnalysisService {
                 throw new IllegalStateException("LLM returned empty response");
             }
 
-            JustificationAnalysis analysis = objectMapper.readValue(response.trim(), JustificationAnalysis.class);
+            String cleaned = response.trim();
+            int s = cleaned.indexOf('{');
+            int e2 = cleaned.lastIndexOf('}');
+            if (s != -1 && e2 != -1) cleaned = cleaned.substring(s, e2 + 1);
+
+            JustificationAnalysis analysis = objectMapper.readValue(cleaned, JustificationAnalysis.class);
             if (analysis.status() == null || analysis.status().isBlank()) {
                 throw new IllegalStateException("Invalid justification status");
             }

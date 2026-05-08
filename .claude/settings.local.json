@@ -15,7 +15,7 @@
       "Bash(cmd.exe /c \"taskkill /F /T /PID 33040 2>&1\")",
       "Bash(cmd.exe /c \"FOR /F \\\\\"tokens=5\\\\\" %a IN \\('netstat -aon ^| findstr :8080 ^| findstr LISTENING'\\) DO taskkill /F /PID %a\")",
       "Bash(powershell.exe -Command \"Stop-Process -Id 33040 -Force; Write-Host 'Done'\")",
-      "Bash(GEMINI_API_KEY=)",
+
       "Bash(echo \"Maven PID: $!\")",
       "Bash(powershell.exe -Command \"Stop-Process -Id 30560 -Force; Write-Host 'Java killed'\")",
       "Bash(powershell.exe -Command 'Get-NetTCPConnection -LocalPort 8080 -State Listen | Select-Object OwningProcess | ForEach-Object { Get-Process -Id $_.OwningProcess }')",
@@ -29,7 +29,12 @@
       "Read(//c/Users/hansa/Downloads/hackaton/hack/**)",
       "Bash(npm --version)",
       "Bash(npx create-next-app@latest frontend --typescript --tailwind --eslint --app --no-src-dir --import-alias \"@/*\" --yes)",
-      "Bash(npm install *)"
+      "Bash(npm install *)",
+      "Bash(docker --version)",
+      "Bash(docker info *)",
+      "Bash(mvn spring-boot:run)",
+      "Bash(kill %1)",
+      "Bash(wait)"
     ]
   }
 }

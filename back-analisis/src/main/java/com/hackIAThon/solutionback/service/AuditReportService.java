@@ -35,6 +35,9 @@ public class AuditReportService {
     @Value("${audit.rules-version:1.0.0}")
     private String rulesVersion;
 
+    @Value("${nvidia.model}")
+    private String llmModel;
+
     public AuditReportService(InvoiceRepository invoiceRepository,
                               FindingRepository findingRepository,
                               AuditResultRepository auditResultRepository,
@@ -50,8 +53,9 @@ public class AuditReportService {
     }
 
     public AuditReportResponse generateReport(Long invoiceId) {
-        if (auditResultRepository.findByInvoiceId(invoiceId).isPresent()) {
-            throw new IllegalStateException("Report already exists for invoiceId: " + invoiceId);
+        var existing = auditResultRepository.findByInvoiceId(invoiceId);
+        if (existing.isPresent()) {
+            return toResponse(existing.get());
         }
 
         invoiceRepository.findById(invoiceId)
@@ -85,7 +89,7 @@ public class AuditReportService {
                 narrative,
                 totalDiscrepancy,
                 scoreBreakdownJson,
-                "models/gemini-3-flash-preview",
+                llmModel,
                 rulesVersion
         );
 

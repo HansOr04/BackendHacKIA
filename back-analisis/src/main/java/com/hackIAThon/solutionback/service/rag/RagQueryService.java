@@ -68,13 +68,6 @@ public class RagQueryService {
             %s
             """.formatted(description, context);
 
-            // Throttling: Esperar 4 segundos para respetar la cuota de 15 RPM de Gemini
-            try {
-                Thread.sleep(4000);
-            } catch (InterruptedException ie) {
-                Thread.currentThread().interrupt();
-            }
-
             String response = chatClient.prompt().user(prompt).call().content().trim();
             
             if ("NO_ENCONTRADO".equalsIgnoreCase(response)) {

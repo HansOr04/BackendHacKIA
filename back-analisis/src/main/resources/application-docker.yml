@@ -1,0 +1,8 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://db:5432/solution_seguros
+    username: postgres
+    password: postgres
+  ai:
+    openai:
+      api-key: ${NVIDIA_API_KEY}

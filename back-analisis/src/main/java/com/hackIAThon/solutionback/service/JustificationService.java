@@ -45,7 +45,7 @@ public class JustificationService {
 
         List<InvoiceLine> lines = invoice.getLines();
         if (lines == null || lines.isEmpty()) {
-            throw new ResourceNotFoundException("Invoice has no lines: " + invoiceId);
+            return new JustificationResultResponse(invoiceId, List.of(), 0);
         }
 
         List<JustifiedLineResponse> justifiedLines = new ArrayList<>();
@@ -54,7 +54,12 @@ public class JustificationService {
 
         for (InvoiceLine line : lines) {
             LlmAnalysisService.JustificationAnalysis analysis = analyzeLine(line, claimReport.getReportText());
-            InvoiceLineStatus status = InvoiceLineStatus.valueOf(analysis.status());
+            InvoiceLineStatus status;
+            try {
+                status = InvoiceLineStatus.valueOf(analysis.status());
+            } catch (IllegalArgumentException ex) {
+                status = InvoiceLineStatus.UNJUSTIFIED;
+            }
             line.setStatus(status);
 
             if (InvoiceLineStatus.UNJUSTIFIED.equals(status)) {
@@ -79,21 +84,21 @@ public class JustificationService {
         }
 
         invoiceRepository.save(invoice);
-        persistJustificationFindings(invoiceId, findings);
+        persistJustificationFindings(findings);
 
         return new JustificationResultResponse(invoiceId, justifiedLines, totalUnjustified);
     }
 
     public ClaimReport fetchClaimReport(Long claimId) {
         return claimReportRepository.findByClaimId(claimId)
-                .orElseThrow(() -> new ResourceNotFoundException("Claim report not found for claimId: " + claimId));
+                .orElseGet(() -> new ClaimReport(claimId, "Sin reporte disponible."));
     }
 
     public LlmAnalysisService.JustificationAnalysis analyzeLine(InvoiceLine line, String claimReport) {
         return llmAnalysisService.analyzeJustification(line.getDescription(), claimReport);
     }
 
-    public void persistJustificationFindings(Long invoiceId, List<Finding> findings) {
+    public void persistJustificationFindings(List<Finding> findings) {
         if (!findings.isEmpty()) {
             findingRepository.saveAll(findings);
         }

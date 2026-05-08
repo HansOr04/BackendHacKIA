@@ -50,7 +50,7 @@ public class TariffIngestionService implements CommandLineRunner {
     }
 
     private void runIngestion() {
-        TokenTextSplitter splitter = new TokenTextSplitter();
+        TokenTextSplitter splitter = new TokenTextSplitter(400, 50, 5, 10000, true);
 
         List<Resource> pdfResources = List.of(tarifario);
         List<Document> allChunks = new ArrayList<>();
