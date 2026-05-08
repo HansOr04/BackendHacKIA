@@ -49,7 +49,7 @@ public class LlmExtractionService {
             
             Retorna SOLO un JSON con este formato exacto, sin explicaciones:
             {
-              "claimId": 0,
+              "claimId": "ID del siniestro",
               "workshopName": "nombre del taller",
               "lines": [
                 {
@@ -62,7 +62,7 @@ public class LlmExtractionService {
             }
             
             Reglas:
-            - claimId es el número de siniestro encontrado en la factura
+            - claimId es el número o código de siniestro (puede ser alfanumérico)
             - category es PART si es repuesto o material, LABOR si es mano de obra
             - quantity es la cantidad extraida de la factura (1 si no se especifica)
             - unitPrice es número decimal sin símbolo de moneda

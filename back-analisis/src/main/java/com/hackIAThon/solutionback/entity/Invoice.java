@@ -14,7 +14,7 @@ public class Invoice {
     private Long id;
 
     @Column(name = "claim_id", nullable = false)
-    private Long claimId;
+    private String claimId;
 
     @Column(name = "workshop_name", nullable = false)
     private String workshopName;
@@ -32,7 +32,7 @@ public class Invoice {
         this.createdAt = LocalDateTime.now();
     }
 
-    public Invoice(Long claimId, String workshopName, String pdfFilename) {
+    public Invoice(String claimId, String workshopName, String pdfFilename) {
         this();
         this.claimId = claimId;
         this.workshopName = workshopName;
@@ -41,8 +41,8 @@ public class Invoice {
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
-    public Long getClaimId() { return claimId; }
-    public void setClaimId(Long claimId) { this.claimId = claimId; }
+    public String getClaimId() { return claimId; }
+    public void setClaimId(String claimId) { this.claimId = claimId; }
     public String getWorkshopName() { return workshopName; }
     public void setWorkshopName(String workshopName) { this.workshopName = workshopName; }
     public String getPdfFilename() { return pdfFilename; }

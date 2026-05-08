@@ -44,7 +44,7 @@ public class InvoiceLine {
 
     public InvoiceLine() {}
 
-    public Long getClaimId() {
+    public String getClaimId() {
         return invoice != null ? invoice.getClaimId() : null;
     }
 

@@ -108,7 +108,7 @@ public class RagQueryService {
      * @param claimId     ID del siniestro actual (para contexto de búsqueda)
      * @return true si se detecta duplicidad en el historial
      */
-    public boolean checkDuplicate(String description, String category, Long claimId) {
+    public boolean checkDuplicate(String description, String category, String claimId) {
         try {
             String query = String.format("historial duplicado %s %s siniestro", description, category);
             List<Document> results = vectorStore.similaritySearch(

@@ -11,5 +11,5 @@ public interface InvoiceLineRepository extends JpaRepository<InvoiceLine, Long> 
 
     List<InvoiceLine> findByInvoice_Id(Long invoiceId);
 
-    List<InvoiceLine> findByInvoice_ClaimId(Long claimId);
+    List<InvoiceLine> findByInvoice_ClaimId(String claimId);
 }
