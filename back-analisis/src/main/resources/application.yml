@@ -37,6 +37,7 @@ spring:
         dimensions: 768
         index-type: HNSW
 
+logging:
   level:
     org:
       apache:
@@ -44,7 +45,6 @@ spring:
           pdmodel:
             font:
               FileSystemFontProvider: ERROR
-
 
 audit:
   approve-threshold: 70   # riskScore >= 70 → APPROVE

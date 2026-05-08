@@ -7,6 +7,7 @@ import com.hackIAThon.solutionback.entity.FindingType;
 import com.hackIAThon.solutionback.entity.Invoice;
 import com.hackIAThon.solutionback.entity.InvoiceLine;
 import com.hackIAThon.solutionback.entity.InvoiceLineStatus;
+import com.hackIAThon.solutionback.exception.ResourceNotFoundException;
 import com.hackIAThon.solutionback.repository.FindingRepository;
 import com.hackIAThon.solutionback.repository.InvoiceRepository;
 import com.hackIAThon.solutionback.service.rag.RagQueryService;
@@ -44,11 +45,11 @@ public class AuditService {
 
     public AuditResultResponse auditInvoice(Long invoiceId) {
         Invoice invoice = invoiceRepository.findById(invoiceId)
-                .orElseThrow(() -> new RuntimeException("Invoice not found: " + invoiceId));
-        
+                .orElseThrow(() -> new ResourceNotFoundException("Invoice not found: " + invoiceId));
+
         List<InvoiceLine> lines = invoice.getLines();
         if (lines == null || lines.isEmpty()) {
-            throw new RuntimeException("Invoice has no lines: " + invoiceId);
+            throw new ResourceNotFoundException("Invoice has no lines: " + invoiceId);
         }
 
         List<AuditLineResponse> auditedLines = new ArrayList<>();
@@ -83,9 +84,12 @@ public class AuditService {
                 if (totalCharged.compareTo(tariffTotal) > 0) {
                     line.setStatus(InvoiceLineStatus.DISCREPANCY);
                     totalDiscrepancy = totalDiscrepancy.add(deltas.absoluteDelta());
-                    findings.add(new Finding(invoiceId, line.getId(), FindingType.PRICE_EXCEEDED,
+                    Finding priceFinding = new Finding(invoiceId, line.getId(), FindingType.PRICE_EXCEEDED,
                         "Price exceeded tariff" + (tariffReference != null ? " — ref: " + tariffReference : ""),
-                        null, null));
+                        null, null);
+                    priceFinding.setAbsoluteDelta(deltas.absoluteDelta());
+                    priceFinding.setDeltaPercentual(deltas.percentualDelta());
+                    findings.add(priceFinding);
                     log.info("DISCREPANCY on line {}: charged={} tariffTotal={} delta={}",
                         line.getId(), totalCharged, tariffTotal, deltas.absoluteDelta());
                 } else if (totalCharged.compareTo(tariffTotal) < 0) {

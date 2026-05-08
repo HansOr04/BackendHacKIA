@@ -1,6 +1,7 @@
 package com.hackIAThon.solutionback.entity;
 
 import jakarta.persistence.*;
+import java.math.BigDecimal;
 
 @Entity
 @Table(name = "findings")
@@ -28,6 +29,12 @@ public class Finding {
 
     @Column(name = "narrative_analysis", columnDefinition = "text")
     private String narrativeAnalysis;
+
+    @Column(name = "absolute_delta")
+    private BigDecimal absoluteDelta;
+
+    @Column(name = "delta_percentual")
+    private BigDecimal deltaPercentual;
 
     public Finding() {}
 
@@ -61,4 +68,10 @@ public class Finding {
 
     public String getNarrativeAnalysis() { return narrativeAnalysis; }
     public void setNarrativeAnalysis(String narrativeAnalysis) { this.narrativeAnalysis = narrativeAnalysis; }
+
+    public BigDecimal getAbsoluteDelta() { return absoluteDelta; }
+    public void setAbsoluteDelta(BigDecimal absoluteDelta) { this.absoluteDelta = absoluteDelta; }
+
+    public BigDecimal getDeltaPercentual() { return deltaPercentual; }
+    public void setDeltaPercentual(BigDecimal deltaPercentual) { this.deltaPercentual = deltaPercentual; }
 }
