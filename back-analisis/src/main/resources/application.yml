@@ -50,6 +50,10 @@ audit:
   approve-threshold: 70   # riskScore >= 70 → APPROVE
   rules-version: "1.0.0"
 
+jwt:
+  secret: ${JWT_SECRET:dGhpcy1pcy1hLXZlcnktc3Ryb25nLXNlY3JldC1rZXktZm9yLWF1ZGl0LVNlZ3Vyb3MtMjAyNA==}
+  expiration: 86400000
+
 springdoc:
   swagger-ui:
     path: /swagger-ui.html
