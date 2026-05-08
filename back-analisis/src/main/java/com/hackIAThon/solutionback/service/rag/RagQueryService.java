@@ -9,8 +9,9 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.ai.chat.client.ChatClient;
 
 /**
  * Consulta el VectorStore interno (pgvector) para obtener precios del tarifario
@@ -24,13 +25,12 @@ public class RagQueryService {
 
     private static final Logger log = LoggerFactory.getLogger(RagQueryService.class);
     private static final int TOP_K = 3;
+    private static final Pattern PRICE_PATTERN = Pattern.compile("\\b(\\d{1,6}(?:[.,]\\d{1,2})?)\\b");
 
     private final VectorStore vectorStore;
-    private final ChatClient chatClient;
 
-    public RagQueryService(VectorStore vectorStore, ChatClient chatClient) {
+    public RagQueryService(VectorStore vectorStore) {
         this.vectorStore = vectorStore;
-        this.chatClient = chatClient;
     }
 
     /**
@@ -52,39 +52,17 @@ public class RagQueryService {
                 return null;
             }
 
-            // Unir el contenido de los fragmentos recuperados
             String context = results.stream()
                 .map(Document::getText)
                 .reduce("", (a, b) -> a + "\n" + b);
 
-            String prompt = """
-            Eres un experto analizando tarifarios de talleres automotrices.
-            En el siguiente texto se encuentra una tabla de precios.
-            Encuentra el precio exacto correspondiente al concepto: '%s'.
-            Responde ÚNICAMENTE con el número decimal (ej. 120.00), sin texto adicional, sin símbolos de moneda.
-            Si el concepto no existe en el texto, responde 'NO_ENCONTRADO'.
-            
-            Texto del tarifario:
-            %s
-            """.formatted(description, context);
-
-            String response = chatClient.prompt().user(prompt).call().content().trim();
-            
-            if ("NO_ENCONTRADO".equalsIgnoreCase(response)) {
-                 log.warn("Tariff fragments found for '{}' but LLM could not find the exact price.", description);
-                 return null;
-            }
-
-            try {
-                // Limpiar posibles símbolos que la IA haya agregado por error
-                response = response.replaceAll("[^\\d.]", "");
-                BigDecimal price = new BigDecimal(response);
+            BigDecimal price = extractPriceFromContext(description, context);
+            if (price != null) {
                 log.debug("Tariff price found for '{}': {}", description, price);
-                return price;
-            } catch (NumberFormatException e) {
-                log.warn("Failed to parse price returned by LLM: '{}' para '{}'", response, description);
-                return null;
+            } else {
+                log.warn("No price extractable from tariff chunks for '{}'", description);
             }
+            return price;
 
         } catch (Exception e) {
             log.error("Error querying VectorStore for tariff price of '{}': {}", description, e.getMessage());
@@ -165,5 +143,35 @@ public class RagQueryService {
             log.error("Error querying tariff reference for '{}': {}", description, e.getMessage());
             return null;
         }
+    }
+
+    private BigDecimal extractPriceFromContext(String description, String context) {
+        String[] keywords = description.toLowerCase().split("[\\s,./\\-]+");
+        String[] lines = context.split("\n");
+
+        int bestScore = 0;
+        BigDecimal bestPrice = null;
+
+        for (String line : lines) {
+            String lineLower = line.toLowerCase();
+            int score = 0;
+            for (String kw : keywords) {
+                if (kw.length() >= 4 && lineLower.contains(kw)) score++;
+            }
+            if (score > 0 && score >= bestScore) {
+                Matcher m = PRICE_PATTERN.matcher(line);
+                while (m.find()) {
+                    try {
+                        BigDecimal candidate = new BigDecimal(m.group(1).replace(",", "."));
+                        if (candidate.compareTo(BigDecimal.TEN) >= 0) {
+                            bestPrice = candidate;
+                            bestScore = score;
+                            break;
+                        }
+                    } catch (NumberFormatException ignored) {}
+                }
+            }
+        }
+        return bestPrice;
     }
 }

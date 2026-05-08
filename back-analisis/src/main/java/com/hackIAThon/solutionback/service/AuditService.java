@@ -14,6 +14,7 @@ import com.hackIAThon.solutionback.service.rag.RagQueryService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -43,6 +44,7 @@ public class AuditService {
         this.ragQueryService = ragQueryService;
     }
 
+    @Transactional
     public AuditResultResponse auditInvoice(Long invoiceId) {
         Invoice invoice = invoiceRepository.findById(invoiceId)
                 .orElseThrow(() -> new ResourceNotFoundException("Invoice not found: " + invoiceId));
@@ -59,13 +61,12 @@ public class AuditService {
         List<Finding> findings = new ArrayList<>();
 
         for (InvoiceLine line : lines) {
-            BigDecimal quantity = line.getQuantity() != null ? line.getQuantity() : BigDecimal.ONE;
-            if (quantity.compareTo(BigDecimal.ZERO) <= 0) {
-                throw new RuntimeException("Invalid quantity on line " + line.getId());
-            }
-            if (line.getUnitPrice() == null || line.getUnitPrice().compareTo(BigDecimal.ZERO) < 0) {
-                throw new RuntimeException("Invalid unit price on line " + line.getId());
-            }
+            BigDecimal quantity = line.getQuantity() != null && line.getQuantity().compareTo(BigDecimal.ZERO) > 0
+                    ? line.getQuantity() : BigDecimal.ONE;
+            BigDecimal unitPrice = line.getUnitPrice() != null && line.getUnitPrice().compareTo(BigDecimal.ZERO) >= 0
+                    ? line.getUnitPrice() : BigDecimal.ZERO;
+            line.setQuantity(quantity);
+            line.setUnitPrice(unitPrice);
 
             // 1. Consultar precio tarifario al VectorStore interno
             BigDecimal tariffPrice = ragQueryService.queryTariffPrice(line.getDescription());

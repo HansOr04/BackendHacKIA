@@ -15,11 +15,16 @@ spring:
     hibernate:
       ddl-auto: update
     show-sql: false
+    open-in-view: false
 
   ai:
     retry:
-      max-attempts: 1
-      on-client-errors: false
+      max-attempts: 3
+      on-client-errors: true
+      backoff:
+        initial-interval: 3000
+        multiplier: 2
+        max-interval: 15000
     openai:
       api-key: ${NVIDIA_API_KEY}
       base-url: https://integrate.api.nvidia.com
