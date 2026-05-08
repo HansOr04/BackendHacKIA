@@ -12,13 +12,6 @@ import java.util.List;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.ai.chat.client.ChatClient;
 
-/**
- * Consulta el VectorStore interno (pgvector) para obtener precios del tarifario
- * y verificar duplicados en el historial de peritaje.
- *
- * IMPORTANTE: Este service es el ÚNICO punto de acceso al VectorStore.
- * No llamar al VectorStore desde ningún otro service.
- */
 @Service
 public class RagQueryService {
 
@@ -33,13 +26,6 @@ public class RagQueryService {
         this.chatClient = chatClient;
     }
 
-    /**
-     * Consulta el VectorStore para obtener el precio tarifario de un concepto dado.
-     * Busca en todos los PDFs de tarifario indexados.
-     *
-     * @param description descripción del concepto a consultar (case-insensitive)
-     * @return precio tarifario como BigDecimal, o null si no se encuentra
-     */
     @Cacheable(value = "tariffPrices", unless = "#result == null")
     public BigDecimal queryTariffPrice(String description) {
         try {
@@ -52,7 +38,6 @@ public class RagQueryService {
                 return null;
             }
 
-            // Unir el contenido de los fragmentos recuperados
             String context = results.stream()
                 .map(Document::getText)
                 .reduce("", (a, b) -> a + "\n" + b);
@@ -68,7 +53,6 @@ public class RagQueryService {
             %s
             """.formatted(description, context);
 
-            // Throttling: Esperar 4 segundos para respetar la cuota de 15 RPM de Gemini
             try {
                 Thread.sleep(4000);
             } catch (InterruptedException ie) {
@@ -83,7 +67,6 @@ public class RagQueryService {
             }
 
             try {
-                // Limpiar posibles símbolos que la IA haya agregado por error
                 response = response.replaceAll("[^\\d.]", "");
                 BigDecimal price = new BigDecimal(response);
                 log.debug("Tariff price found for '{}': {}", description, price);
@@ -99,15 +82,6 @@ public class RagQueryService {
         }
     }
 
-    /**
-     * Verifica si existe un concepto duplicado en el historial de peritaje
-     * indexado en el VectorStore.
-     *
-     * @param description descripción del concepto (case-insensitive)
-     * @param category    categoría del ítem (PART / LABOR)
-     * @param claimId     ID del siniestro actual (para contexto de búsqueda)
-     * @return true si se detecta duplicidad en el historial
-     */
     public boolean checkDuplicate(String description, String category, String claimId) {
         try {
             String query = String.format("historial duplicado %s %s siniestro", description, category);
@@ -119,7 +93,6 @@ public class RagQueryService {
                 return false;
             }
 
-            // Determinar si algún fragmento del historial menciona el concepto en otro siniestro
             String descLower = description.toLowerCase();
             for (Document doc : results) {
                 String content = doc.getText().toLowerCase();
@@ -142,13 +115,6 @@ public class RagQueryService {
         }
     }
 
-    /**
-     * Retorna la referencia exacta del tarifario (nombre del documento y sección)
-     * para un concepto dado.
-     *
-     * @param description descripción del concepto
-     * @return referencia textual del documento fuente, o null si no aplica
-     */
     public String queryTariffReference(String description) {
         try {
             List<Document> results = vectorStore.similaritySearch(

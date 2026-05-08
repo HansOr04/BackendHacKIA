@@ -15,20 +15,6 @@ import org.springframework.stereotype.Component;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Servicio de inicialización que carga los PDFs del tarifario en el VectorStore
- * al arrancar la aplicación.
- *
- * Flujo:
- *   1. Lee cada PDF desde src/main/resources/docs/
- *   2. Fragmenta el contenido en chunks semánticamente coherentes (TokenTextSplitter)
- *   3. Persiste los chunks en el VectorStore (pgvector) para búsquedas RAG
- *
- * IMPORTANTE:
- *   - Los PDFs deben ubicarse en src/main/resources/docs/
- *   - Siempre fragmentar con TokenTextSplitter antes de insertar — nunca insertar el PDF completo
- *   - Este service es el ÚNICO que puede escribir al VectorStore
- */
 @Component
 public class TariffIngestionService implements CommandLineRunner {
     private static final Logger log = LoggerFactory.getLogger(TariffIngestionService.class);
@@ -61,11 +47,10 @@ public class TariffIngestionService implements CommandLineRunner {
                 continue;
             }
 
-            // Opción A: Evitar re-crear chunks si el archivo ya fue indexado
             String filename = pdf.getFilename();
             List<Document> existing = vectorStore.similaritySearch(
                     SearchRequest.builder()
-                            .query("información") // consulta genérica para activar la búsqueda
+                            .query("información")
                             .topK(1)
                             .filterExpression("source == '" + filename + "'")
                             .build()
@@ -80,7 +65,6 @@ public class TariffIngestionService implements CommandLineRunner {
             var reader = new PagePdfDocumentReader(pdf);
             List<Document> chunks = splitter.apply(reader.get());
 
-            // Enriquecer metadata con nombre del archivo fuente para trazabilidad
             chunks.forEach(doc ->
                 doc.getMetadata().put("source", filename)
             );

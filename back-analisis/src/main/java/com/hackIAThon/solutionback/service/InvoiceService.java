@@ -14,7 +14,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
-import java.util.Optional;
 
 @Service
 public class InvoiceService {
@@ -37,10 +36,8 @@ public class InvoiceService {
         try {
             InputStreamResource pdfResource = new InputStreamResource(file.getInputStream());
 
-            // 1. Extraer datos completos del PDF vía LLM (incluyendo claimId y workshopName)
             ExtractedInvoice extracted = llmExtractionService.extractInvoice(pdfResource);
 
-            // 2. Persistir la factura con los datos extraídos
             Invoice invoice = new Invoice(
                 extracted.claimId(),
                 extracted.workshopName(),
@@ -49,7 +46,6 @@ public class InvoiceService {
             invoice = invoiceRepository.save(invoice);
             final Invoice savedInvoice = invoice;
 
-            // 3. Persistir líneas extraídas
             List<InvoiceLine> lines = extracted.lines().stream()
                 .map(line -> {
                     InvoiceLine invoiceLine = new InvoiceLine();
@@ -64,8 +60,6 @@ public class InvoiceService {
                 .toList();
 
             invoiceLineRepository.saveAll(lines);
-
-
 
             log.info("Invoice uploaded: invoiceId={}, claimId={}, lines={}",
                 savedInvoice.getId(), extracted.claimId(), lines.size());

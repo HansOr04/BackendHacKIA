@@ -14,11 +14,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 
-/**
- * Patches Gemini's OpenAI-compatible responses for Spring AI compatibility:
- * - Embeddings: adds missing `usage` field
- * - Chat: removes `extra_content` field (added by Gemini thinking models, unknown to Spring AI)
- */
 public class GeminiCompatibilityInterceptor implements ClientHttpRequestInterceptor {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();

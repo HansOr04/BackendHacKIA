@@ -10,13 +10,6 @@ import org.springframework.ai.reader.pdf.PagePdfDocumentReader;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 
-
-/**
- * Extrae líneas de factura estructuradas desde un PDF usando ChatClient (Ollama).
- *
- * IMPORTANTE: Este service es el ÚNICO que puede llamar al ChatClient para extracción.
- * No llamar al ChatClient desde ningún otro service salvo LlmAnalysisService.
- */
 @Service
 public class LlmExtractionService {
 
@@ -30,12 +23,6 @@ public class LlmExtractionService {
         this.objectMapper = objectMapper;
     }
 
-    /**
-     * Lee el PDF de la factura y extrae sus líneas como JSON estructurado.
-     *
-     * @param pdfResource PDF de la factura subido por el usuario
-     * @return lista de líneas extraídas con descripción, categoría y precio unitario
-     */
     public ExtractedInvoice extractInvoice(Resource pdfResource) {
         try {
             var reader = new PagePdfDocumentReader(pdfResource);

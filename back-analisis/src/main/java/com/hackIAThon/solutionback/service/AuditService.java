@@ -20,12 +20,6 @@ import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Orquesta el flujo completo de auditoría de tarifario y detección de duplicados.
- *
- * El precio tarifario y la verificación de duplicados se obtienen del VectorStore
- * interno (pgvector) via RagQueryService — sin llamadas HTTP externas.
- */
 @Service
 public class AuditService {
 
@@ -66,7 +60,6 @@ public class AuditService {
                 throw new RuntimeException("Invalid unit price on line " + line.getId());
             }
 
-            // 1. Consultar precio tarifario al VectorStore interno
             BigDecimal tariffPrice = ragQueryService.queryTariffPrice(line.getDescription());
             String tariffReference = ragQueryService.queryTariffReference(line.getDescription());
 
@@ -103,7 +96,6 @@ public class AuditService {
                     line.setStatus(InvoiceLineStatus.APPROVED);
                 }
             } else {
-                // RAG no retornó precio → UNJUSTIFIED (fallback, no excepción)
                 line.setStatus(InvoiceLineStatus.UNJUSTIFIED);
                 findings.add(new Finding(invoiceId, line.getId(), FindingType.UNJUSTIFIED,
                     "No tariff price found in VectorStore for: " + line.getDescription(),
@@ -112,7 +104,6 @@ public class AuditService {
                     line.getId(), line.getDescription());
             }
 
-            // 2. Verificar duplicados en el historial del VectorStore
             boolean isDuplicate = ragQueryService.checkDuplicate(
                     line.getDescription(), line.getCategory(), line.getInvoice().getClaimId());
 
