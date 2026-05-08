@@ -9,8 +9,8 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.ai.chat.client.ChatClient;
 
 /**
  * Consulta el VectorStore interno (pgvector) para obtener precios del tarifario
@@ -24,12 +24,13 @@ public class RagQueryService {
 
     private static final Logger log = LoggerFactory.getLogger(RagQueryService.class);
     private static final int TOP_K = 3;
-    private static final Pattern PRICE_PATTERN = Pattern.compile("\\$?([\\d,]+\\.?\\d*)");
 
     private final VectorStore vectorStore;
+    private final ChatClient chatClient;
 
-    public RagQueryService(VectorStore vectorStore) {
+    public RagQueryService(VectorStore vectorStore, ChatClient chatClient) {
         this.vectorStore = vectorStore;
+        this.chatClient = chatClient;
     }
 
     /**
@@ -39,6 +40,7 @@ public class RagQueryService {
      * @param description descripción del concepto a consultar (case-insensitive)
      * @return precio tarifario como BigDecimal, o null si no se encuentra
      */
+    @Cacheable(value = "tariffPrices", unless = "#result == null")
     public BigDecimal queryTariffPrice(String description) {
         try {
             List<Document> results = vectorStore.similaritySearch(
@@ -50,20 +52,46 @@ public class RagQueryService {
                 return null;
             }
 
-            // Extraer el primer precio numérico encontrado en el fragmento más relevante
-            for (Document doc : results) {
-                String content = doc.getText();
-                Matcher matcher = PRICE_PATTERN.matcher(content);
-                if (matcher.find()) {
-                    String priceStr = matcher.group(1).replace(",", "");
-                    log.debug("Tariff price found for '{}': {} (source: {})",
-                        description, priceStr, doc.getMetadata().getOrDefault("source", "unknown"));
-                    return new BigDecimal(priceStr);
-                }
+            // Unir el contenido de los fragmentos recuperados
+            String context = results.stream()
+                .map(Document::getText)
+                .reduce("", (a, b) -> a + "\n" + b);
+
+            String prompt = """
+            Eres un experto analizando tarifarios de talleres automotrices.
+            En el siguiente texto se encuentra una tabla de precios.
+            Encuentra el precio exacto correspondiente al concepto: '%s'.
+            Responde ÚNICAMENTE con el número decimal (ej. 120.00), sin texto adicional, sin símbolos de moneda.
+            Si el concepto no existe en el texto, responde 'NO_ENCONTRADO'.
+            
+            Texto del tarifario:
+            %s
+            """.formatted(description, context);
+
+            // Throttling: Esperar 4 segundos para respetar la cuota de 15 RPM de Gemini
+            try {
+                Thread.sleep(4000);
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
             }
 
-            log.warn("Tariff fragments found for '{}' but no parseable price in content.", description);
-            return null;
+            String response = chatClient.prompt().user(prompt).call().content().trim();
+            
+            if ("NO_ENCONTRADO".equalsIgnoreCase(response)) {
+                 log.warn("Tariff fragments found for '{}' but LLM could not find the exact price.", description);
+                 return null;
+            }
+
+            try {
+                // Limpiar posibles símbolos que la IA haya agregado por error
+                response = response.replaceAll("[^\\d.]", "");
+                BigDecimal price = new BigDecimal(response);
+                log.debug("Tariff price found for '{}': {}", description, price);
+                return price;
+            } catch (NumberFormatException e) {
+                log.warn("Failed to parse price returned by LLM: '{}' para '{}'", response, description);
+                return null;
+            }
 
         } catch (Exception e) {
             log.error("Error querying VectorStore for tariff price of '{}': {}", description, e.getMessage());

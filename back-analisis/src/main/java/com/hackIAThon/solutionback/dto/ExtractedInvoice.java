@@ -5,5 +5,6 @@ import java.util.List;
 public record ExtractedInvoice(
     Long claimId,
     String workshopName,
+    String claimReport,
     List<ExtractedInvoiceLine> lines
 ) {}

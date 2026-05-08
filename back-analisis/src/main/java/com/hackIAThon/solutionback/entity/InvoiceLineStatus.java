@@ -4,5 +4,6 @@ public enum InvoiceLineStatus {
     APPROVED,
     DISCREPANCY,
     DUPLICATE,
-    UNJUSTIFIED
+    UNJUSTIFIED,
+    UNDERCHARGED
 }

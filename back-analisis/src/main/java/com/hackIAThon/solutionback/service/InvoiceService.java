@@ -2,9 +2,11 @@ package com.hackIAThon.solutionback.service;
 
 import com.hackIAThon.solutionback.dto.ExtractedInvoice;
 import com.hackIAThon.solutionback.dto.InvoiceUploadResponse;
+import com.hackIAThon.solutionback.entity.ClaimReport;
 import com.hackIAThon.solutionback.entity.Invoice;
 import com.hackIAThon.solutionback.entity.InvoiceLine;
 import com.hackIAThon.solutionback.entity.InvoiceLineStatus;
+import com.hackIAThon.solutionback.repository.ClaimReportRepository;
 import com.hackIAThon.solutionback.repository.InvoiceLineRepository;
 import com.hackIAThon.solutionback.repository.InvoiceRepository;
 import org.slf4j.Logger;
@@ -14,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class InvoiceService {
@@ -22,13 +25,16 @@ public class InvoiceService {
 
     private final InvoiceRepository invoiceRepository;
     private final InvoiceLineRepository invoiceLineRepository;
+    private final ClaimReportRepository claimReportRepository;
     private final LlmExtractionService llmExtractionService;
 
     public InvoiceService(InvoiceRepository invoiceRepository,
                           InvoiceLineRepository invoiceLineRepository,
+                          ClaimReportRepository claimReportRepository,
                           LlmExtractionService llmExtractionService) {
         this.invoiceRepository = invoiceRepository;
         this.invoiceLineRepository = invoiceLineRepository;
+        this.claimReportRepository = claimReportRepository;
         this.llmExtractionService = llmExtractionService;
     }
 
@@ -55,6 +61,7 @@ public class InvoiceService {
                     invoiceLine.setInvoice(savedInvoice);
                     invoiceLine.setDescription(line.description());
                     invoiceLine.setCategory(line.category());
+                    invoiceLine.setQuantity(line.quantity() != null ? line.quantity() : java.math.BigDecimal.ONE);
                     invoiceLine.setUnitPrice(line.unitPrice());
                     invoiceLine.setStatus(InvoiceLineStatus.APPROVED);
                     return invoiceLine;
@@ -62,6 +69,18 @@ public class InvoiceService {
                 .toList();
 
             invoiceLineRepository.saveAll(lines);
+
+            if (extracted.claimReport() != null && !extracted.claimReport().isBlank()) {
+                claimReportRepository.findByClaimId(extracted.claimId())
+                        .map(existing -> {
+                            existing.setReportText(extracted.claimReport());
+                            return claimReportRepository.save(existing);
+                        })
+                        .orElseGet(() -> claimReportRepository.save(
+                                new ClaimReport(extracted.claimId(), extracted.claimReport())
+                        ));
+            }
+
             log.info("Invoice uploaded: invoiceId={}, claimId={}, lines={}",
                 savedInvoice.getId(), extracted.claimId(), lines.size());
 

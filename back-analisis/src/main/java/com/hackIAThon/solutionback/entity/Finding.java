@@ -23,13 +23,22 @@ public class Finding {
     @Column
     private String description;
 
+    @Column(name = "claim_excerpt", columnDefinition = "text")
+    private String claimExcerpt;
+
+    @Column(name = "narrative_analysis", columnDefinition = "text")
+    private String narrativeAnalysis;
+
     public Finding() {}
 
-    public Finding(Long invoiceId, Long lineId, FindingType type, String description) {
+    public Finding(Long invoiceId, Long lineId, FindingType type, String description,
+                   String claimExcerpt, String narrativeAnalysis) {
         this.invoiceId = invoiceId;
         this.lineId = lineId;
         this.type = type;
         this.description = description;
+        this.claimExcerpt = claimExcerpt;
+        this.narrativeAnalysis = narrativeAnalysis;
     }
 
     public Long getId() { return id; }
@@ -46,4 +55,10 @@ public class Finding {
 
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
+
+    public String getClaimExcerpt() { return claimExcerpt; }
+    public void setClaimExcerpt(String claimExcerpt) { this.claimExcerpt = claimExcerpt; }
+
+    public String getNarrativeAnalysis() { return narrativeAnalysis; }
+    public void setNarrativeAnalysis(String narrativeAnalysis) { this.narrativeAnalysis = narrativeAnalysis; }
 }

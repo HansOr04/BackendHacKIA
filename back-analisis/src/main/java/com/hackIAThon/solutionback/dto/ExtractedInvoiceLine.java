@@ -5,5 +5,6 @@ import java.math.BigDecimal;
 public record ExtractedInvoiceLine(
     String description,
     String category,
+    BigDecimal quantity,
     BigDecimal unitPrice
 ) {}

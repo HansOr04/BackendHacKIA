@@ -17,11 +17,7 @@ public class AuditController {
 
     @PostMapping("/invoice/{invoiceId}")
     public ResponseEntity<AuditResultResponse> auditInvoice(@PathVariable Long invoiceId) {
-        try {
-            AuditResultResponse result = auditService.auditInvoice(invoiceId);
-            return ResponseEntity.ok(result);
-        } catch (RuntimeException e) {
-            return ResponseEntity.notFound().build();
-        }
+        AuditResultResponse result = auditService.auditInvoice(invoiceId);
+        return ResponseEntity.ok(result);
     }
 }

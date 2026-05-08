@@ -51,10 +51,12 @@ public class LlmExtractionService {
             {
               "claimId": 0,
               "workshopName": "nombre del taller",
+              "claimReport": "texto del reporte de siniestro",
               "lines": [
                 {
                   "description": "descripción del concepto",
                   "category": "PART o LABOR",
+                  "quantity": 0.00,
                   "unitPrice": 0.00
                 }
               ]
@@ -63,7 +65,9 @@ public class LlmExtractionService {
             Reglas:
             - claimId es el número de siniestro encontrado en la factura
             - category es PART si es repuesto o material, LABOR si es mano de obra
+            - quantity es la cantidad extraida de la factura (1 si no se especifica)
             - unitPrice es número decimal sin símbolo de moneda
+            - claimReport es el texto del reporte de siniestro asociado al reclamo
             
             Contenido de la factura:
             %s
@@ -74,7 +78,14 @@ public class LlmExtractionService {
                     .call()
                     .content();
 
-            ExtractedInvoice extracted = objectMapper.readValue(response.trim(), ExtractedInvoice.class);
+            String cleanedResponse = response.trim();
+            int startIndex = cleanedResponse.indexOf('{');
+            int endIndex = cleanedResponse.lastIndexOf('}');
+            if (startIndex != -1 && endIndex != -1) {
+                cleanedResponse = cleanedResponse.substring(startIndex, endIndex + 1);
+            }
+
+            ExtractedInvoice extracted = objectMapper.readValue(cleanedResponse, ExtractedInvoice.class);
             log.info("LLM extracted invoice: claimId={}, workshop={}, lines={}",
                     extracted.claimId(), extracted.workshopName(), extracted.lines().size());
 

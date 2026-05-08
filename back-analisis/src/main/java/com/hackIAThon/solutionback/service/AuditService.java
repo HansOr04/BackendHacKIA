@@ -57,6 +57,14 @@ public class AuditService {
         List<Finding> findings = new ArrayList<>();
 
         for (InvoiceLine line : lines) {
+            BigDecimal quantity = line.getQuantity() != null ? line.getQuantity() : BigDecimal.ONE;
+            if (quantity.compareTo(BigDecimal.ZERO) <= 0) {
+                throw new RuntimeException("Invalid quantity on line " + line.getId());
+            }
+            if (line.getUnitPrice() == null || line.getUnitPrice().compareTo(BigDecimal.ZERO) < 0) {
+                throw new RuntimeException("Invalid unit price on line " + line.getId());
+            }
+
             // 1. Consultar precio tarifario al VectorStore interno
             BigDecimal tariffPrice = ragQueryService.queryTariffPrice(line.getDescription());
             String tariffReference = ragQueryService.queryTariffReference(line.getDescription());
@@ -65,17 +73,28 @@ public class AuditService {
             line.setTariffReferences(tariffReference);
 
             if (tariffPrice != null) {
-                var deltas = calculateDeltas(line.getUnitPrice(), tariffPrice);
+                BigDecimal totalCharged = line.getUnitPrice().multiply(quantity);
+                BigDecimal tariffTotal = tariffPrice.multiply(quantity);
+
+                var deltas = calculateDeltas(totalCharged, tariffTotal);
                 line.setAbsoluteDelta(deltas.absoluteDelta());
                 line.setPercentualDelta(deltas.percentualDelta());
 
-                if (line.getUnitPrice().compareTo(tariffPrice) > 0) {
+                if (totalCharged.compareTo(tariffTotal) > 0) {
                     line.setStatus(InvoiceLineStatus.DISCREPANCY);
                     totalDiscrepancy = totalDiscrepancy.add(deltas.absoluteDelta());
                     findings.add(new Finding(invoiceId, line.getId(), FindingType.PRICE_EXCEEDED,
-                        "Price exceeded tariff" + (tariffReference != null ? " — ref: " + tariffReference : "")));
-                    log.info("DISCREPANCY on line {}: unit={} tariff={} delta={}",
-                        line.getId(), line.getUnitPrice(), tariffPrice, deltas.absoluteDelta());
+                        "Price exceeded tariff" + (tariffReference != null ? " — ref: " + tariffReference : ""),
+                        null, null));
+                    log.info("DISCREPANCY on line {}: charged={} tariffTotal={} delta={}",
+                        line.getId(), totalCharged, tariffTotal, deltas.absoluteDelta());
+                } else if (totalCharged.compareTo(tariffTotal) < 0) {
+                    line.setStatus(InvoiceLineStatus.UNDERCHARGED);
+                    findings.add(new Finding(invoiceId, line.getId(), FindingType.PRICE_UNDER_TARIFF,
+                        "Undercharged compared to tariff" + (tariffReference != null ? " — ref: " + tariffReference : ""),
+                        null, null));
+                    log.info("UNDERCHARGED on line {}: charged={} tariffTotal={} delta={}",
+                        line.getId(), totalCharged, tariffTotal, deltas.absoluteDelta());
                 } else {
                     line.setStatus(InvoiceLineStatus.APPROVED);
                 }
@@ -83,30 +102,34 @@ public class AuditService {
                 // RAG no retornó precio → UNJUSTIFIED (fallback, no excepción)
                 line.setStatus(InvoiceLineStatus.UNJUSTIFIED);
                 findings.add(new Finding(invoiceId, line.getId(), FindingType.UNJUSTIFIED,
-                    "No tariff price found in VectorStore for: " + line.getDescription()));
+                    "No tariff price found in VectorStore for: " + line.getDescription(),
+                    null, null));
                 log.warn("UNJUSTIFIED line {}: no tariff match in VectorStore for '{}'",
                     line.getId(), line.getDescription());
             }
 
             // 2. Verificar duplicados en el historial del VectorStore
             boolean isDuplicate = ragQueryService.checkDuplicate(
-                line.getDescription(), line.getCategory(), line.getClaimId());
+                    line.getDescription(), line.getCategory(), line.getInvoice().getClaimId());
 
             if (isDuplicate) {
                 line.setStatus(InvoiceLineStatus.DUPLICATE);
                 duplicatesDetected++;
                 findings.add(new Finding(invoiceId, line.getId(), FindingType.DUPLICATE,
-                    "Duplicate item detected in claim history: " + line.getDescription()));
+                    "Duplicate item detected in claim history: " + line.getDescription(),
+                    null, null));
                 log.info("DUPLICATE detected on line {}: '{}'", line.getId(), line.getDescription());
             }
 
-            invoiceRepository.save(invoice);
+            BigDecimal totalCharged = line.getUnitPrice().multiply(quantity);
 
             auditedLines.add(new AuditLineResponse(
                 line.getId(),
                 line.getDescription(),
                 line.getCategory(),
                 line.getUnitPrice(),
+                quantity,
+                totalCharged,
                 line.getTariffPrice(),
                 line.getAbsoluteDelta(),
                 line.getPercentualDelta(),
@@ -115,6 +138,7 @@ public class AuditService {
             ));
         }
 
+        invoiceRepository.save(invoice);
         persistFindings(invoiceId, findings);
         log.info("Audit completed for invoiceId={}: {} lines audited, {} findings, {} duplicates.",
             invoiceId, auditedLines.size(), findings.size(), duplicatesDetected);
@@ -124,10 +148,13 @@ public class AuditService {
 
     public record Deltas(BigDecimal absoluteDelta, BigDecimal percentualDelta) {}
 
-    public Deltas calculateDeltas(BigDecimal unitPrice, BigDecimal tariffPrice) {
-        BigDecimal absoluteDelta = unitPrice.subtract(tariffPrice).abs();
+    public Deltas calculateDeltas(BigDecimal totalCharged, BigDecimal tariffTotal) {
+        BigDecimal absoluteDelta = totalCharged.subtract(tariffTotal).abs();
+        if (tariffTotal.compareTo(BigDecimal.ZERO) == 0) {
+            return new Deltas(absoluteDelta, BigDecimal.ZERO);
+        }
         BigDecimal percentualDelta = absoluteDelta
-            .divide(tariffPrice, 4, RoundingMode.HALF_UP)
+            .divide(tariffTotal, 4, RoundingMode.HALF_UP)
             .multiply(BigDecimal.valueOf(100));
         return new Deltas(absoluteDelta, percentualDelta);
     }

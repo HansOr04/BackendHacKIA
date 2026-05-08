@@ -24,6 +24,9 @@ public class InvoiceLine {
     @Column(name = "unit_price", nullable = false)
     private BigDecimal unitPrice;
 
+    @Column(name = "quantity", nullable = false)
+    private BigDecimal quantity = BigDecimal.ONE;
+
     @Column(name = "tariff_price")
     private BigDecimal tariffPrice;
 
@@ -59,6 +62,9 @@ public class InvoiceLine {
 
     public BigDecimal getUnitPrice() { return unitPrice; }
     public void setUnitPrice(BigDecimal unitPrice) { this.unitPrice = unitPrice; }
+
+    public BigDecimal getQuantity() { return quantity; }
+    public void setQuantity(BigDecimal quantity) { this.quantity = quantity; }
 
     public BigDecimal getTariffPrice() { return tariffPrice; }
     public void setTariffPrice(BigDecimal tariffPrice) { this.tariffPrice = tariffPrice; }

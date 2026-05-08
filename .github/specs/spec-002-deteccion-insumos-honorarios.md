@@ -122,7 +122,7 @@ CRITERIO-2.3: Incluye fragmento del reporte que justifica o refuta el cobro
 
 ### Capas de Implementación
 
-#### DTO (Java 21 Records)
+#### DTO (Java 17 Records)
 - `JustifiedLineResponse` — línea con status, fragmento de evidencia y análisis narrativo
 - `JustificationResultResponse` — resultado consolidado: invoiceId, justifiedLines, totalUnjustified
 
@@ -145,7 +145,7 @@ CRITERIO-2.3: Incluye fragmento del reporte que justifica o refuta el cobro
 - `claimExcerpt` es el fragmento exacto retornado por el `LlmAnalysisService` — no modificar
 - Si el `ChatClient` no responde → fallback: estado `UNJUSTIFIED`, `claimExcerpt` null
 - Toda interacción con el LLM se realiza en `service/llm/LlmAnalysisService` — nunca llamar al `ChatClient` desde `JustificationService` directamente
-- DTOs como Java 21 Records con Bean Validation
+- DTOs como Java 17 Records con Bean Validation
 - Inyección por constructor en todos los componentes
 
 ---

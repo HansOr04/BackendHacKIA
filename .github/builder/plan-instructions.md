@@ -2,14 +2,14 @@
 applyTo: "**/src/main/java/**/*.java"
 ---
 
-> **Scope**: Se aplica al monolito modular `solution-seguros`. Java 21 / Spring Boot 4.0.6 / Maven.
+> **Scope**: Se aplica al monolito modular `solution-seguros`. Java 17 / Spring Boot 3.4.2 / Maven.
 
 # Instrucciones para Backend — `solution-seguros`
 
 ## Stack Tecnológico
 
-- **Lenguaje**: Java 21
-- **Framework**: Spring Boot 4.0.6
+- **Lenguaje**: Java 17
+- **Framework**: Spring Boot 3.4.2
 - **Build**: Maven
 - **Base de Datos**: PostgreSQL con Spring Data JPA / Hibernate
 - **Vector Store**: pgvector (misma instancia PostgreSQL)
@@ -44,7 +44,7 @@ applyTo: "**/src/main/java/**/*.java"
 
 ```
 
-## Java 21 — Features obligatorias
+## Java 17 — Features obligatorias
 
 - **Records para DTOs**: Usar `record` en lugar de clases para Request/Response DTOs.
 - **Pattern Matching**: Utilizar `instanceof` con pattern matching y `switch` expressions donde sea conveniente.
@@ -63,7 +63,7 @@ com.solution.seguros/
 │   ├── ingestion/     ← Operaciones de inicialización de BD/VectorStore (ej. TariffIngestionService).
 │   ├── llm/           ← LlmExtractionService (PDF→JSON) y LlmAnalysisService (veredicto).
 │   └── rag/           ← RagQueryService: consultas al vector store (tarifario e historial).
-├── dto/               ← Request/Response DTOs (Java 21 Records).
+├── dto/               ← Request/Response DTOs (Java 17 Records).
 ├── entity/            ← Entidades JPA (@Entity). Nunca mezclar con DTOs.
 ├── repository/        ← Interfaces Spring Data JPA.
 ├── exception/         ← Excepciones de dominio + GlobalExceptionHandler.
@@ -77,7 +77,7 @@ dto → entity → repository → service → controller → config
 
 | Capa | Responsabilidad | Prohibido |
 |------|-----------------|-----------|
-| **dto/** | Records Java 21 con Bean Validation para entrada y salida del API | Lógica de negocio, acceso a BD |
+| **dto/** | Records Java 17 con Bean Validation para entrada y salida del API | Lógica de negocio, acceso a BD |
 | **entity/** | Clases JPA con `@Entity` y `@Table(name = "snake_case")` | Lógica de negocio, exponer al controller |
 | **repository/** | Interfaces `JpaRepository` — queries a PostgreSQL | Lógica de negocio |
 | **service/audit/** | Orquestación del flujo de auditoría, cálculos, detección de duplicados, score | Acceso HTTP directo, lógica de controller |
@@ -111,13 +111,13 @@ AuditResult persistido en PostgreSQL → AuditReportResponse al cliente
 
 ## Convenciones de Código
 
-- Java 21 — usar features modernas: records, pattern matching, switch expressions
-- Spring Boot 4.0.6
+- Java 17 — usar features modernas: records, pattern matching, switch expressions
+- Spring Boot 3.4.2
 - REST API versionada: `/v1/`
 - Nombres en camelCase para variables y métodos
 - Clases en PascalCase
 - Paquetes en minúsculas: `com.solution.seguros`
-- DTOs siempre como Java 21 Records — nunca clases con getters/setters
+- DTOs siempre como Java 17 Records — nunca clases con getters/setters
 - Entidades JPA con `@Table(name = "snake_case")` — nunca mezclar con DTOs
 - Validaciones con Bean Validation: `@Valid`, `@NotNull`, `@NotBlank`, `@Positive`, `@DecimalMin`
 - Manejo global de excepciones con `@RestControllerAdvice` en `exception/GlobalExceptionHandler`
@@ -129,7 +129,7 @@ AuditResult persistido en PostgreSQL → AuditReportResponse al cliente
 
 ## Ejemplos de Implementación
 
-### DTO (Java 21 Record)
+### DTO (Java 17 Record)
 
 ```java
 // dto/AuditLineResponse.java

@@ -176,7 +176,7 @@ public enum Recommendation {
 
 ### Capas de Implementación
 
-#### DTO (Java 21 Records)
+#### DTO (Java 17 Records)
 - `AuditReportResponse` — reporte completo con score, recomendación y narrativa
 - `ScoreBreakdownDto` — desglose del score por tipo de hallazgo
 
@@ -210,7 +210,7 @@ public enum Recommendation {
 - `scoreBreakdown` se persiste como String JSON usando `ObjectMapper`
 - Si el `ChatClient` no responde → fallback: `narrativeSummary` con resumen generado por el service sin LLM
 - Toda interacción con el LLM se realiza en `service/llm/LlmAnalysisService` — nunca llamar al `ChatClient` desde `AuditReportService` directamente
-- DTOs como Java 21 Records con Bean Validation
+- DTOs como Java 17 Records con Bean Validation
 - Inyección por constructor en todos los componentes
 - `createdAt` auto-asignado en UTC al persistir
 

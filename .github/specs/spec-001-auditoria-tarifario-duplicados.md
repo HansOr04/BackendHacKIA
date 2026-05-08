@@ -159,7 +159,7 @@ public enum FindingType {
 
 ### Capas de Implementación
 
-#### DTO (Java 21 Records)
+#### DTO (Java 17 Records)
 - `AuditLineResponse` — línea auditada con deltas, status y referencia tarifaria
 - `AuditResultResponse` — resultado consolidado: invoiceId, auditedLines, totalDiscrepancy, duplicatesDetected
 
@@ -184,7 +184,7 @@ public enum FindingType {
 - Si el VectorStore no retorna coincidencias → fallback: estado `UNJUSTIFIED`, no lanzar excepción al cliente
 - Comparación de `description` para duplicados: case-insensitive
 - Usar `BigDecimal` — nunca `double` en cálculos monetarios
-- DTOs como Java 21 Records con Bean Validation
+- DTOs como Java 17 Records con Bean Validation
 - Inyección por constructor en todos los componentes
 
 ---

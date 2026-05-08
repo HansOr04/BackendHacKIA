@@ -7,6 +7,8 @@ public record AuditLineResponse(
     String description,
     String category,
     BigDecimal unitPrice,
+    BigDecimal quantity,
+    BigDecimal totalCharged,
     BigDecimal tariffPrice,
     BigDecimal absoluteDelta,
     BigDecimal percentualDelta,
