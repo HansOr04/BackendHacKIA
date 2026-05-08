@@ -1,7 +1,6 @@
 package com.hackIAThon.solutionback.dto;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 
 public record AuditReportResponse(
         Long reportId,
@@ -13,5 +12,5 @@ public record AuditReportResponse(
         BigDecimal totalDiscrepancy,
         String llmModelVersion,
         String rulesVersion,
-        LocalDateTime createdAt
+        String createdAt
 ) {}

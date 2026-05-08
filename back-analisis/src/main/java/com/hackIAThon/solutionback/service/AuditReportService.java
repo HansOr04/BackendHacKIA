@@ -16,6 +16,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 @Service
@@ -98,13 +99,18 @@ public class AuditReportService {
         return toResponse(result);
     }
 
+    private static final DateTimeFormatter DT_FMT =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
+
     private AuditReportResponse toResponse(AuditResult result) {
         ScoreBreakdownDto breakdown;
         try {
             breakdown = objectMapper.readValue(result.getScoreBreakdown(), ScoreBreakdownDto.class);
-        } catch (JsonProcessingException e) {
+        } catch (Exception e) {
             breakdown = new ScoreBreakdownDto(100, 0, 0, 0, result.getRiskScore(), 0, 0, 0);
         }
+        String createdAt = result.getCreatedAt() != null
+                ? result.getCreatedAt().format(DT_FMT) : null;
         return new AuditReportResponse(
                 result.getId(),
                 result.getInvoiceId(),
@@ -115,7 +121,7 @@ public class AuditReportService {
                 result.getTotalDiscrepancy(),
                 result.getLlmModelVersion(),
                 result.getRulesVersion(),
-                result.getCreatedAt()
+                createdAt
         );
     }
 }
