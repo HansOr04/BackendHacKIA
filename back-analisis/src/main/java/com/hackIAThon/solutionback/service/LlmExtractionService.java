@@ -51,7 +51,6 @@ public class LlmExtractionService {
             {
               "claimId": 0,
               "workshopName": "nombre del taller",
-              "claimReport": "texto del reporte de siniestro",
               "lines": [
                 {
                   "description": "descripción del concepto",
@@ -67,7 +66,6 @@ public class LlmExtractionService {
             - category es PART si es repuesto o material, LABOR si es mano de obra
             - quantity es la cantidad extraida de la factura (1 si no se especifica)
             - unitPrice es número decimal sin símbolo de moneda
-            - claimReport es el texto del reporte de siniestro asociado al reclamo
             
             Contenido de la factura:
             %s
