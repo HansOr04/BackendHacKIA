@@ -27,16 +27,21 @@ public class InvoiceController {
     public ResponseEntity<?> uploadInvoice(@RequestPart("file") MultipartFile file) {
         try {
             return ResponseEntity.ok(invoiceService.uploadInvoice(file));
-        } catch (IllegalStateException e) {
+        } catch (Exception e) {
             Throwable cause = e.getCause() != null ? e.getCause() : e;
-            if (cause instanceof HttpClientErrorException.TooManyRequests) {
-                log.warn("Nvidia API rate limit hit uploading {}", file.getOriginalFilename());
+            String causeClass = cause.getClass().getSimpleName();
+            if (cause instanceof HttpClientErrorException.TooManyRequests
+                    || causeClass.contains("TooManyRequests")
+                    || causeClass.contains("RateLimit")) {
+                log.warn("API rate limit hit uploading {}", file.getOriginalFilename());
                 return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
-                        .body("{\"message\":\"API rate limit reached. Please wait 60 seconds and try again.\",\"status\":429}");
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body("{\"message\":\"Límite de API alcanzado. Espera 60 segundos e intenta de nuevo.\",\"status\":429}");
             }
-            log.error("Invoice upload failed: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
-                    .body("{\"message\":\"" + e.getMessage() + "\",\"status\":503}");
+            log.error("Invoice upload failed: {} - {}", causeClass, e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body("{\"message\":\"Error procesando la factura: " + e.getMessage().replace("\"", "'") + "\",\"status\":500}");
         }
     }
 }

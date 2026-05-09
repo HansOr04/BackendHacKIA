@@ -13,7 +13,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -23,6 +25,8 @@ import java.util.List;
 public class NvidiaExtractionService {
 
     private static final Logger log = LoggerFactory.getLogger(NvidiaExtractionService.class);
+    private static final int MAX_RETRIES = 3;
+    private static final long INITIAL_BACKOFF_MS = 5000;
 
     private static final String PROMPT_TEMPLATE = """
             Eres un extractor de datos de facturas y tickets de compra.
@@ -66,12 +70,10 @@ public class NvidiaExtractionService {
         String pdfText = extractText(file);
         log.info("Extracted {} chars from PDF: {}", pdfText.length(), file.getOriginalFilename());
 
-        String userMessage = PROMPT_TEMPLATE.formatted(pdfText);
-
         NvidiaRequest request = NvidiaRequest.builder()
                 .model(model)
                 .messages(List.of(
-                        NvidiaMessage.builder().role("user").content(userMessage).build()
+                        NvidiaMessage.builder().role("user").content(PROMPT_TEMPLATE.formatted(pdfText)).build()
                 ))
                 .maxTokens(1024)
                 .temperature(0.1)
@@ -79,12 +81,7 @@ public class NvidiaExtractionService {
                 .build();
 
         log.info("Sending to NVIDIA NIM: model={}, file={}", model, file.getOriginalFilename());
-
-        NvidiaResponse response = restClient.post()
-                .uri("/chat/completions")
-                .body(request)
-                .retrieve()
-                .body(NvidiaResponse.class);
+        NvidiaResponse response = callWithRetry(request, file.getOriginalFilename());
 
         if (response == null || response.getChoices() == null || response.getChoices().isEmpty()) {
             throw new IllegalStateException("NVIDIA API returned empty response");
@@ -100,11 +97,54 @@ public class NvidiaExtractionService {
         return parseJson(rawContent);
     }
 
+    private NvidiaResponse callWithRetry(NvidiaRequest request, String filename) {
+        long backoff = INITIAL_BACKOFF_MS;
+        Exception lastException = null;
+        for (int attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+            try {
+                NvidiaResponse response = restClient.post()
+                        .uri("/chat/completions")
+                        .body(request)
+                        .retrieve()
+                        .body(NvidiaResponse.class);
+                log.info("NVIDIA response received for {}", filename);
+                return response;
+            } catch (HttpClientErrorException.TooManyRequests e) {
+                lastException = e;
+                if (attempt == MAX_RETRIES) {
+                    log.error("NVIDIA rate limit: all {} retries exhausted for {}", MAX_RETRIES, filename);
+                    throw e;
+                }
+                log.warn("NVIDIA rate limit on attempt {}/{} for {}. Waiting {}ms...", attempt, MAX_RETRIES, filename, backoff);
+                try { Thread.sleep(backoff); } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    throw new IllegalStateException("Interrupted during retry", ie);
+                }
+                backoff *= 2;
+            } catch (HttpClientErrorException e) {
+                log.error("NVIDIA API client error {}: {} for file {}", e.getStatusCode(), e.getResponseBodyAsString(), filename);
+                throw new IllegalStateException("NVIDIA API error: " + e.getStatusCode() + " - " + e.getResponseBodyAsString(), e);
+            } catch (RestClientException e) {
+                lastException = e;
+                log.error("NVIDIA API connection error on attempt {}/{} for {}: {}", attempt, MAX_RETRIES, filename, e.getMessage());
+                if (attempt == MAX_RETRIES) {
+                    throw new IllegalStateException("NVIDIA API unreachable after " + MAX_RETRIES + " attempts: " + e.getMessage(), e);
+                }
+                try { Thread.sleep(backoff); } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    throw new IllegalStateException("Interrupted during retry", ie);
+                }
+                backoff *= 2;
+            }
+        }
+        throw new IllegalStateException("NVIDIA call failed after retries", lastException);
+    }
+
     private String extractText(MultipartFile file) throws IOException {
         try (PDDocument doc = Loader.loadPDF(file.getBytes())) {
             PDFTextStripper stripper = new PDFTextStripper();
             stripper.setStartPage(1);
-            stripper.setEndPage(Math.min(3, doc.getNumberOfPages())); // max 3 páginas
+            stripper.setEndPage(Math.min(3, doc.getNumberOfPages()));
             return stripper.getText(doc);
         }
     }

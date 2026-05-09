@@ -17,6 +17,10 @@ spring:
     show-sql: false
     open-in-view: false
 
+  jackson:
+    deserialization:
+      fail-on-unknown-properties: false
+
   ai:
     retry:
       max-attempts: 3
@@ -31,7 +35,7 @@ spring:
       chat:
         enabled: true
         options:
-          model: deepseek-ai/deepseek-v4-pro
+          model: meta/llama-3.3-70b-instruct
       embedding:
         enabled: true
         options:
@@ -63,7 +67,7 @@ jwt:
 nvidia:
   api-key: ${NVIDIA_API_KEY}
   base-url: https://integrate.api.nvidia.com/v1
-  model: deepseek-ai/deepseek-v4-pro
+  model: meta/llama-3.1-8b-instruct
 
 springdoc:
   swagger-ui:

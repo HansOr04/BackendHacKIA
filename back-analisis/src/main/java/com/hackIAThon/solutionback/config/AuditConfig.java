@@ -1,5 +1,6 @@
 package com.hackIAThon.solutionback.config;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -26,7 +27,8 @@ public class AuditConfig {
 
     @Bean
     public ObjectMapper objectMapper() {
-        return new ObjectMapper();
+        return new ObjectMapper()
+                .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
     }
 
     @Bean
@@ -57,6 +59,7 @@ public class AuditConfig {
                     byte[] raw = response.getBody().readAllBytes();
                     JsonNode root = mapper.readTree(new String(raw, StandardCharsets.UTF_8));
                     removeField(root, "reasoning_content");
+                    removeField(root, "annotations");
                     byte[] patched = mapper.writeValueAsBytes(root);
                     ClientHttpResponse delegate = response;
                     return new ClientHttpResponse() {
