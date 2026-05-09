@@ -13,6 +13,7 @@ import lombok.NoArgsConstructor;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class Item {
     private String descripcion;
+    private String categoria;
     private Integer cantidad;
     private Double precioUnitario;
     private Double subtotal;

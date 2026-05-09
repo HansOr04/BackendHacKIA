@@ -7,34 +7,32 @@ import org.springframework.ai.reader.pdf.PagePdfDocumentReader;
 import org.springframework.ai.transformer.splitter.TokenTextSplitter;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.core.annotation.Order;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
+import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Servicio de inicialización que carga los PDFs del tarifario en el VectorStore
- * al arrancar la aplicación.
+ * Carga todos los PDFs de tarifario ubicados en src/main/resources/docs/ al arrancar.
+ * También expone ingestPdf() para indexar tarifarios adicionales en tiempo de ejecución.
  *
- * Flujo:
- *   1. Lee cada PDF desde src/main/resources/docs/
- *   2. Fragmenta el contenido en chunks semánticamente coherentes (TokenTextSplitter)
- *   3. Persiste los chunks en el VectorStore (pgvector) para búsquedas RAG
- *
- * IMPORTANTE:
- *   - Los PDFs deben ubicarse en src/main/resources/docs/
- *   - Siempre fragmentar con TokenTextSplitter antes de insertar — nunca insertar el PDF completo
- *   - Este service es el ÚNICO que puede escribir al VectorStore
+ * Reglas:
+ *   - Todos los PDFs en classpath:/docs/ se indexan automáticamente al iniciar.
+ *   - La deduplicación se hace por nombre de archivo (metadata "source").
+ *   - Este service es el ÚNICO que puede escribir al VectorStore.
  */
 @Component
+@Order(1)
 public class TariffIngestionService implements CommandLineRunner {
+
     private static final Logger log = LoggerFactory.getLogger(TariffIngestionService.class);
+
     private final VectorStore vectorStore;
-    @Value("classpath:/docs/tarifario_siniestros_automotriz.pdf")
-    private Resource tarifario;
 
     public TariffIngestionService(VectorStore vectorStore) {
         this.vectorStore = vectorStore;
@@ -43,58 +41,80 @@ public class TariffIngestionService implements CommandLineRunner {
     @Override
     public void run(String... args) {
         try {
-            runIngestion();
+            Resource[] pdfs = new PathMatchingResourcePatternResolver()
+                    .getResources("classpath:/docs/*.pdf");
+
+            if (pdfs.length == 0) {
+                log.warn("No PDF tarifarios found in classpath:/docs/ — RAG queries may not work.");
+                return;
+            }
+
+            TokenTextSplitter splitter = new TokenTextSplitter(400, 50, 5, 10000, true);
+            List<Document> allChunks = new ArrayList<>();
+
+            for (Resource pdf : pdfs) {
+                List<Document> chunks = indexIfNeeded(pdf.getFilename(), pdf, splitter);
+                allChunks.addAll(chunks);
+            }
+
+            if (!allChunks.isEmpty()) {
+                vectorStore.accept(allChunks);
+                log.info("VectorStore loaded: {} total chunks from {} PDFs.", allChunks.size(), pdfs.length);
+            }
         } catch (Exception e) {
             log.error("Tariff ingestion failed — app will still start, but RAG queries may not work: {}", e.getMessage());
         }
     }
 
-    private void runIngestion() {
+    /**
+     * Indexa un PDF subido en tiempo de ejecución. Idempotente por nombre de archivo.
+     *
+     * @param filename nombre del archivo (usado como clave de deduplicación)
+     * @param pdfBytes contenido binario del PDF
+     * @return número de chunks indexados (0 si ya estaba indexado)
+     */
+    public int ingestPdf(String filename, byte[] pdfBytes) {
+        Resource resource = new ByteArrayResource(pdfBytes) {
+            @Override
+            public String getFilename() {
+                return filename;
+            }
+        };
+
         TokenTextSplitter splitter = new TokenTextSplitter(400, 50, 5, 10000, true);
+        List<Document> chunks = indexIfNeeded(filename, resource, splitter);
 
-        List<Resource> pdfResources = List.of(tarifario);
-        List<Document> allChunks = new ArrayList<>();
+        if (!chunks.isEmpty()) {
+            vectorStore.accept(chunks);
+            log.info("Runtime tariff ingestion complete: '{}' → {} chunks indexed.", filename, chunks.size());
+        }
+        return chunks.size();
+    }
 
-        for (Resource pdf : pdfResources) {
-            if (!pdf.exists()) {
-                log.warn("PDF resource not found, skipping: {}", pdf.getFilename());
-                continue;
-            }
-
-            // Opción A: Evitar re-crear chunks si el archivo ya fue indexado
-            String filename = pdf.getFilename();
-            List<Document> existing = vectorStore.similaritySearch(
-                    SearchRequest.builder()
-                            .query("información") // consulta genérica para activar la búsqueda
-                            .topK(1)
-                            .filterExpression("source == '" + filename + "'")
-                            .build()
-            );
-
-            if (!existing.isEmpty()) {
-                log.info("PDF {} already indexed in VectorStore. Skipping.", filename);
-                continue;
-            }
-
-            log.info("Indexing PDF: {}", filename);
-            var reader = new PagePdfDocumentReader(pdf);
-            List<Document> chunks = splitter.apply(reader.get());
-
-            // Enriquecer metadata con nombre del archivo fuente para trazabilidad
-            chunks.forEach(doc ->
-                doc.getMetadata().put("source", filename)
-            );
-
-            allChunks.addAll(chunks);
-            log.info("  → {} chunks generated from {}", chunks.size(), filename);
+    private List<Document> indexIfNeeded(String filename, Resource resource, TokenTextSplitter splitter) {
+        if (!resource.exists()) {
+            log.warn("PDF resource not found, skipping: {}", filename);
+            return List.of();
         }
 
-        if (!allChunks.isEmpty()) {
-            vectorStore.accept(allChunks);
-            log.info("VectorStore loaded successfully with {} total chunks from {} PDFs.",
-                allChunks.size(), pdfResources.size());
-        } else {
-            log.warn("No PDF documents were indexed. Ensure PDFs exist in src/main/resources/docs/");
+        List<Document> existing = vectorStore.similaritySearch(
+                SearchRequest.builder()
+                        .query("información")
+                        .topK(1)
+                        .filterExpression("source == '" + filename + "'")
+                        .build()
+        );
+
+        if (existing != null && !existing.isEmpty()) {
+            log.info("PDF '{}' already indexed in VectorStore. Skipping.", filename);
+            return List.of();
         }
+
+        log.info("Indexing tariff PDF: {}", filename);
+        var reader = new PagePdfDocumentReader(resource);
+        List<Document> chunks = splitter.apply(reader.get());
+        chunks.forEach(doc -> doc.getMetadata().put("source", filename));
+        log.info("  → {} chunks generated from '{}'", chunks.size(), filename);
+        return chunks;
     }
 }

@@ -29,16 +29,17 @@ public class NvidiaExtractionService {
     private static final long INITIAL_BACKOFF_MS = 5000;
 
     private static final String PROMPT_TEMPLATE = """
-            Eres un extractor de datos de facturas y tickets de compra.
-            Analiza el siguiente texto extraído de una factura y devuelve SOLO un JSON válido \
+            Eres un extractor de datos de facturas, presupuestos y documentos de cobro de cualquier sector.
+            Analiza el siguiente texto y devuelve SOLO un JSON válido \
             sin texto adicional ni markdown, con este formato exacto:
             {
-              "comercio": "nombre del comercio o empresa emisora",
+              "comercio": "nombre del comercio, empresa o proveedor emisor",
               "fecha": "fecha de emisión en formato DD/MM/YYYY",
               "total": 0.00,
               "items": [
                 {
-                  "descripcion": "nombre del producto o servicio",
+                  "descripcion": "nombre del producto, repuesto, insumo o servicio",
+                  "categoria": "categoría del ítem (ejemplos: REPUESTO, MANO_DE_OBRA, HONORARIO, MATERIAL, SERVICIO, INSUMO, OTRO)",
                   "cantidad": 1,
                   "precioUnitario": 0.00,
                   "subtotal": 0.00
@@ -48,9 +49,10 @@ public class NvidiaExtractionService {
             Reglas:
             - Si un campo no está disponible usa null.
             - El total y precios son números decimales sin símbolo de moneda.
+            - La categoría debe inferirse del tipo de ítem; usa OTRO si no encaja en ninguna categoría conocida.
             - Responde ÚNICAMENTE con el JSON, sin explicaciones.
 
-            Texto de la factura:
+            Texto del documento:
             %s
             """;
 

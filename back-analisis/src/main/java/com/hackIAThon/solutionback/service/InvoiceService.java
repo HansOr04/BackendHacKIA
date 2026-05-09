@@ -61,7 +61,8 @@ public class InvoiceService {
                         InvoiceLine line = new InvoiceLine();
                         line.setInvoice(savedInvoice);
                         line.setDescription(item.getDescripcion() != null ? item.getDescripcion() : "Sin descripción");
-                        line.setCategory("PART");
+                        line.setCategory(item.getCategoria() != null && !item.getCategoria().isBlank()
+                                ? item.getCategoria() : "GENERAL");
                         line.setQuantity(item.getCantidad() != null
                                 ? BigDecimal.valueOf(item.getCantidad()) : BigDecimal.ONE);
                         line.setUnitPrice(item.getPrecioUnitario() != null
