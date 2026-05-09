@@ -125,16 +125,8 @@ public class NvidiaExtractionService {
                 log.error("NVIDIA API client error {}: {} for file {}", e.getStatusCode(), e.getResponseBodyAsString(), filename);
                 throw new IllegalStateException("NVIDIA API error: " + e.getStatusCode() + " - " + e.getResponseBodyAsString(), e);
             } catch (RestClientException e) {
-                lastException = e;
-                log.error("NVIDIA API connection error on attempt {}/{} for {}: {}", attempt, MAX_RETRIES, filename, e.getMessage());
-                if (attempt == MAX_RETRIES) {
-                    throw new IllegalStateException("NVIDIA API unreachable after " + MAX_RETRIES + " attempts: " + e.getMessage(), e);
-                }
-                try { Thread.sleep(backoff); } catch (InterruptedException ie) {
-                    Thread.currentThread().interrupt();
-                    throw new IllegalStateException("Interrupted during retry", ie);
-                }
-                backoff *= 2;
+                log.error("NVIDIA API connection error for {}: {}", filename, e.getMessage());
+                throw new IllegalStateException("NVIDIA API unreachable: " + e.getMessage(), e);
             }
         }
         throw new IllegalStateException("NVIDIA call failed after retries", lastException);

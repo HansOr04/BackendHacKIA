@@ -21,7 +21,7 @@ public class NvidiaConfig {
     public RestClient nvidiaRestClient() {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(Duration.ofSeconds(15));
-        factory.setReadTimeout(Duration.ofSeconds(90));
+        factory.setReadTimeout(Duration.ofSeconds(30));
 
         return RestClient.builder()
                 .requestFactory(factory)

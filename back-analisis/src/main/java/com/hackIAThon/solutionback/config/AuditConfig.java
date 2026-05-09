@@ -55,21 +55,24 @@ public class AuditConfig {
 
             // Patch response: remove reasoning_content added by DeepSeek/Nvidia thinking models
             if (request.getURI().getPath().endsWith("/chat/completions")) {
+                byte[] raw = response.getBody().readAllBytes();
+                response.close();
+                byte[] bodyToReturn = raw;
                 try {
-                    byte[] raw = response.getBody().readAllBytes();
                     JsonNode root = mapper.readTree(new String(raw, StandardCharsets.UTF_8));
                     removeField(root, "reasoning_content");
                     removeField(root, "annotations");
-                    byte[] patched = mapper.writeValueAsBytes(root);
-                    ClientHttpResponse delegate = response;
-                    return new ClientHttpResponse() {
-                        @Override public InputStream getBody() { return new ByteArrayInputStream(patched); }
-                        @Override public HttpStatusCode getStatusCode() throws IOException { return delegate.getStatusCode(); }
-                        @Override public String getStatusText() throws IOException { return delegate.getStatusText(); }
-                        @Override public HttpHeaders getHeaders() { return delegate.getHeaders(); }
-                        @Override public void close() { delegate.close(); }
-                    };
-                } catch (Exception ignored) {}
+                    bodyToReturn = mapper.writeValueAsBytes(root);
+                } catch (Exception ignored) { /* keep raw bytes if JSON patching fails */ }
+                final byte[] finalBody = bodyToReturn;
+                ClientHttpResponse delegate = response;
+                return new ClientHttpResponse() {
+                    @Override public InputStream getBody() { return new ByteArrayInputStream(finalBody); }
+                    @Override public HttpStatusCode getStatusCode() throws IOException { return delegate.getStatusCode(); }
+                    @Override public String getStatusText() throws IOException { return delegate.getStatusText(); }
+                    @Override public HttpHeaders getHeaders() { return delegate.getHeaders(); }
+                    @Override public void close() { /* already closed above after readAllBytes */ }
+                };
             }
 
             return response;
