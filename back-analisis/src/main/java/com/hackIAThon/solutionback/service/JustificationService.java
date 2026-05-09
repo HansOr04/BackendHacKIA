@@ -12,7 +12,10 @@ import com.hackIAThon.solutionback.exception.ResourceNotFoundException;
 import com.hackIAThon.solutionback.repository.ClaimReportRepository;
 import com.hackIAThon.solutionback.repository.FindingRepository;
 import com.hackIAThon.solutionback.repository.InvoiceRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
@@ -26,6 +29,9 @@ public class JustificationService {
     private final FindingRepository findingRepository;
     private final LlmAnalysisService llmAnalysisService;
 
+    @Autowired @Lazy
+    private JustificationService self;
+
     public JustificationService(InvoiceRepository invoiceRepository,
                                 ClaimReportRepository claimReportRepository,
                                 FindingRepository findingRepository,
@@ -36,7 +42,6 @@ public class JustificationService {
         this.llmAnalysisService = llmAnalysisService;
     }
 
-    @Transactional
     public JustificationResultResponse analyzeJustification(Long invoiceId) {
         Invoice invoice = invoiceRepository.findById(invoiceId)
                 .orElseThrow(() -> new ResourceNotFoundException("Invoice not found: " + invoiceId));
@@ -53,7 +58,7 @@ public class JustificationService {
         int totalUnjustified = 0;
 
         for (InvoiceLine line : lines) {
-            LlmAnalysisService.JustificationAnalysis analysis = analyzeLine(line, claimReport.getReportText());
+            LlmAnalysisService.JustificationAnalysis analysis = self.analyzeLine(line, claimReport.getReportText());
             InvoiceLineStatus status;
             try {
                 status = InvoiceLineStatus.valueOf(analysis.status());
@@ -84,7 +89,7 @@ public class JustificationService {
         }
 
         invoiceRepository.save(invoice);
-        persistJustificationFindings(findings);
+        self.persistJustificationFindings(findings);
 
         return new JustificationResultResponse(invoiceId, justifiedLines, totalUnjustified);
     }
@@ -94,10 +99,12 @@ public class JustificationService {
                 .orElseGet(() -> new ClaimReport(claimId, "Sin reporte disponible."));
     }
 
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public LlmAnalysisService.JustificationAnalysis analyzeLine(InvoiceLine line, String claimReport) {
         return llmAnalysisService.analyzeJustification(line.getDescription(), claimReport);
     }
 
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void persistJustificationFindings(List<Finding> findings) {
         if (!findings.isEmpty()) {
             findingRepository.saveAll(findings);
