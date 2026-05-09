@@ -43,7 +43,7 @@ public class JustificationService {
     }
 
     public JustificationResultResponse analyzeJustification(Long invoiceId) {
-        Invoice invoice = invoiceRepository.findById(invoiceId)
+        Invoice invoice = invoiceRepository.findByIdWithLines(invoiceId)
                 .orElseThrow(() -> new ResourceNotFoundException("Invoice not found: " + invoiceId));
 
         ClaimReport claimReport = fetchClaimReport(invoice.getClaimId());
