@@ -12,7 +12,7 @@
 
 | Capa | Responsabilidad | Prohibido |
 |------|-----------------|-----------|
-| **DTO** | Request/Response como Java 21 Records con Bean Validation | Lógica de negocio, acceso a DB |
+| **DTO** | Request/Response como Java 17 Records con Bean Validation | Lógica de negocio, acceso a DB |
 | **Service** | Lógica de negocio: orquestación del flujo de auditoría, llamadas a LLM, consultas RAG, cálculos de delta, score de riesgo | Acceso directo a HTTP en controllers |
 | **Controller** | `@RestController` — recibe PDF + ID siniestro, delega al service, devuelve reporte | Lógica de negocio |
 | **Config** | Beans de Spring, configuración de clientes LLM, vector store, propiedades | Lógica de negocio |
@@ -22,8 +22,8 @@
 ## Patrón de DI (obligatorio)
 - Inyección por constructor exclusivamente
 - Ningún `@Autowired` en campo
-- Java 21 — usar Records para todos los DTOs
-- Spring Boot 4.0.6
+- Java 17 — usar Records para todos los DTOs
+- Spring Boot 3.4.2
 
 ---
 

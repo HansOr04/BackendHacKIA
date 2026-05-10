@@ -167,7 +167,7 @@ public enum Recommendation {
 ```
 - **Response 404**: Factura no encontrada
 - **Response 409**: Reporte ya existe para esta factura
-- **Response 503**: Fallo al generar reporte
+- **Response 503**: Fallo interno del ChatClient / LlmAnalysisService
 
 #### GET /v1/audit/invoice/{invoiceId}/report
 - **Descripción**: Recupera el reporte activo de una factura
@@ -176,11 +176,9 @@ public enum Recommendation {
 
 ### Capas de Implementación
 
-#### DTO (Java 21 Records)
+#### DTO (Java 17 Records)
 - `AuditReportResponse` — reporte completo con score, recomendación y narrativa
 - `ScoreBreakdownDto` — desglose del score por tipo de hallazgo
-- `LlmSummaryRequest` — request al LLM para generar narrativa consolidada
-- `LlmSummaryResponse` — respuesta del LLM con el resumen narrativo
 
 #### Service
 - `RiskScoreCalculator`
@@ -190,7 +188,7 @@ public enum Recommendation {
   - `consolidateFindings(Long invoiceId)` — agrupa hallazgos de SPEC-001 y SPEC-002
   - `buildScoreBreakdown(List<Finding> findings)` — construye desglose JSON
   - `determineRecommendation(Integer riskScore)` — retorna APPROVE si >= 70, ESCALATE si < 70
-  - `generateNarrativeSummary(List<Finding> findings, Integer riskScore)` — consulta LLM
+  - `generateNarrativeSummary(List<Finding> findings, Integer riskScore)` — delega a `LlmAnalysisService` interno (ChatClient) para generar la narrativa consolidada
   - `persistReport(AuditResult result)` — persiste en BD
 
 #### Controller
@@ -202,21 +200,17 @@ public enum Recommendation {
 
 #### Config
 - `AuditReportConfig`
-  - Bean `WebClient` para LLM
   - Bean `ObjectMapper` para serialización de `scoreBreakdown`
-  - Propiedades en `application.yml`: `llm.summarize.url`, `audit.approve-threshold` (70), `audit.rules-version`, timeout 10s
-
-### Integración con Servicios Externos
-| Servicio | Endpoint | Método | Propósito |
-|----------|----------|--------|-----------|
-| LLM | `/v1/llm/summarize-audit` | POST | Generar narrativa consolidada del caso |
+  - Propiedades en `application.yml`: `audit.approve-threshold` (70), `audit.rules-version`
+  - No requiere `WebClient` — el LLM se consume internamente vía `ChatClient` de Spring AI
 
 ### Notas de Implementación
 - `determineRecommendation` solo retorna `APPROVE` o `ESCALATE` — sin `REJECT`
 - Reporte idempotente: segundo POST mismo `invoiceId` → 409 Conflict
 - `scoreBreakdown` se persiste como String JSON usando `ObjectMapper`
-- Si LLM no responde → fallback: `narrativeSummary` con resumen generado por el service sin LLM
-- DTOs como Java 21 Records con Bean Validation
+- Si el `ChatClient` no responde → fallback: `narrativeSummary` con resumen generado por el service sin LLM
+- Toda interacción con el LLM se realiza en `service/llm/LlmAnalysisService` — nunca llamar al `ChatClient` desde `AuditReportService` directamente
+- DTOs como Java 17 Records con Bean Validation
 - Inyección por constructor en todos los componentes
 - `createdAt` auto-asignado en UTC al persistir
 
@@ -229,8 +223,6 @@ public enum Recommendation {
 ### DTO
 - [ ] Crear `AuditReportResponse` (Record): `reportId, invoiceId, riskScore, recommendation, scoreBreakdown, narrativeSummary, totalDiscrepancy, llmModelVersion, rulesVersion, createdAt`
 - [ ] Crear `ScoreBreakdownDto` (Record): `baseScore, discrepanciesPenalty, duplicatesPenalty, unjustifiedPenalty, finalScore, discrepanciesCount, duplicatesCount, unjustifiedCount`
-- [ ] Crear `LlmSummaryRequest` (Record): `findings, riskScore, recommendation`
-- [ ] Crear `LlmSummaryResponse` (Record): `narrativeSummary`
 
 ### Service
 - [ ] Crear entidad `AuditResult` JPA con todos los campos del modelo
@@ -243,5 +235,5 @@ public enum Recommendation {
 - [ ] Retornar `AuditReportResponse` — status 201, 404, 409 o 503
 
 ### Config
-- [ ] Crear `AuditReportConfig` con bean `WebClient` para LLM y bean `ObjectMapper`
-- [ ] Configurar en `application.yml`: `llm.summarize.url`, `audit.approve-threshold`, `audit.rules-version`, timeout 10s
+- [ ] Crear `AuditReportConfig` con bean `ObjectMapper`
+- [ ] Configurar en `application.yml`: `audit.approve-threshold`, `audit.rules-version`

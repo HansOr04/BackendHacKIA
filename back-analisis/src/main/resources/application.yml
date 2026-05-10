@@ -1,0 +1,70 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: solution-back
+  profiles:
+    active: local
+  datasource:
+    url: jdbc:postgresql://localhost:5432/solution_seguros
+    username: postgres
+    password: postgres
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    open-in-view: false
+
+  jackson:
+    deserialization:
+      fail-on-unknown-properties: false
+
+  ai:
+    retry:
+      max-attempts: 1
+      on-client-errors: false
+    openai:
+      api-key: ${NVIDIA_API_KEY}
+      base-url: https://integrate.api.nvidia.com
+      chat:
+        enabled: true
+        options:
+          model: meta/llama-3.3-70b-instruct
+      embedding:
+        enabled: true
+        options:
+          model: nvidia/nv-embedqa-e5-v5
+
+    vectorstore:
+      pgvector:
+        initialize-schema: true
+        dimensions: 1024
+        index-type: HNSW
+
+logging:
+  level:
+    org:
+      apache:
+        pdfbox:
+          pdmodel:
+            font:
+              FileSystemFontProvider: ERROR
+
+audit:
+  approve-threshold: 70   # riskScore >= 70 → APPROVE
+  rules-version: "1.0.0"
+
+jwt:
+  secret: ${JWT_SECRET:dGhpcy1pcy1hLXZlcnktc3Ryb25nLXNlY3JldC1rZXktZm9yLWF1ZGl0LVNlZ3Vyb3MtMjAyNA==}
+  expiration: 86400000
+
+nvidia:
+  api-key: ${NVIDIA_API_KEY}
+  base-url: https://integrate.api.nvidia.com/v1
+  model: meta/llama-3.1-8b-instruct
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html

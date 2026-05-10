@@ -15,7 +15,7 @@ Su objetivo es establecer un entendimiento común (lenguaje ubicuo) para la lóg
 Seguir estrictamente estos estándares al implementar las entidades:
 - Entidades JPA: clases anotadas con @Entity, @Table(name = "snake_case")
 - IDs: Long autogenerado con @GeneratedValue(strategy = GenerationType.IDENTITY)
-- DTOs: Java 21 Records — nunca clases con getters/setters
+- DTOs: Java 17 Records — nunca clases con getters/setters
 - Fechas: LocalDateTime — nunca Date ni Timestamp
 - Enums: definidos como enum Java, persistidos como @Enumerated(EnumType.STRING)
 - Atributos requeridos: @Column(nullable = false)

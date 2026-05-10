@@ -41,7 +41,7 @@ Servicio:     solution-back
 ```gherkin
 CRITERIO-1.1: Marca líneas con precio mayor al tarifario
   Dado que:  existe una factura con insumos u honorarios facturados
-  Cuando:    el sistema compara los valores contra el tarifario pactado vía RAG
+  Cuando:    el sistema compara los valores contra el tarifario pactado vía RAG interno
   Entonces:  marca cada línea donde el precio facturado es mayor al precio tarifario
   Y:         aplica la validación tanto para materiales como para honorarios
   Y:         calcula el delta absoluto y porcentual por línea
@@ -80,8 +80,8 @@ CRITERIO-1.4: Muestra referencia exacta del tarifario
 4. Una línea entra en estado `DUPLICATE` si existe un concepto idéntico previamente pagado en siniestros del mismo activo.
 5. La referencia del tarifario debe ser exacta y trazable (ej: "Tarifario AAA 2026 — Item 456").
 6. La comparación de descripciones es case-insensitive.
-7. El sistema consume RAG para poblar `tariffPrice` en cada línea antes de calcular deltas.
-8. Si RAG retorna null para `tariffPrice`, marcar la línea con estado `UNJUSTIFIED`.
+7. El sistema consulta el VectorStore interno (RAG) para poblar `tariffPrice` en cada línea antes de calcular deltas.
+8. Si el VectorStore no retorna resultados para `tariffPrice`, marcar la línea con estado `UNJUSTIFIED`.
 9. Usar `BigDecimal` para todos los cálculos monetarios — nunca `double`.
 
 ---
@@ -99,7 +99,7 @@ CRITERIO-1.4: Muestra referencia exacta del tarifario
 #### Campos adicionales en `InvoiceLine`
 | Campo | Tipo Java | Columna DB | Requerido | Descripción |
 |-------|-----------|------------|-----------|-------------|
-| `tariffPrice` | `BigDecimal` | `tariff_price` | sí (post-RAG) | Precio tarifario consultado vía RAG |
+| `tariffPrice` | `BigDecimal` | `tariff_price` | sí (post-RAG) | Precio tarifario consultado vía RAG interno |
 | `absoluteDelta` | `BigDecimal` | `absolute_delta` | no | Delta absoluto auto-calculado |
 | `percentualDelta` | `BigDecimal` | `percentual_delta` | no | Delta porcentual auto-calculado |
 | `tariffReferences` | `String` | `tariff_references` | no | Referencia exacta del tarifario |
@@ -155,22 +155,20 @@ public enum FindingType {
 }
 ```
 - **Response 404**: Factura no encontrada
-- **Response 503**: Fallo al consultar RAG
+- **Response 503**: Fallo interno del servicio RAG / VectorStore
 
 ### Capas de Implementación
 
-#### DTO (Java 21 Records)
+#### DTO (Java 17 Records)
 - `AuditLineResponse` — línea auditada con deltas, status y referencia tarifaria
 - `AuditResultResponse` — resultado consolidado: invoiceId, auditedLines, totalDiscrepancy, duplicatesDetected
-- `TariffQueryRequest` — request al RAG para consultar precio tarifario por descripción
-- `DuplicateCheckRequest` — request al RAG para verificar duplicados en historial
 
 #### Service
 - `AuditService`
   - `auditInvoice(Long invoiceId)` — orquesta auditoría completa
-  - `fetchTariffPrice(String description)` — consulta RAG, retorna BigDecimal o null
+  - `fetchTariffPrice(String description)` — consulta VectorStore, retorna BigDecimal o null
   - `calculateDeltas(BigDecimal unitPrice, BigDecimal tariffPrice)` — retorna absoluteDelta y percentualDelta
-  - `checkDuplicates(InvoiceLine line, Long claimId)` — consulta RAG historial, retorna boolean
+  - `checkDuplicates(InvoiceLine line, Long claimId)` — consulta VectorStore (historial), retorna boolean
   - `persistFindings(Long invoiceId, List<Finding> findings)` — persiste hallazgos en BD
 
 #### Controller
@@ -179,23 +177,14 @@ public enum FindingType {
   - Inyecta `AuditService` por constructor
   - Retorna `AuditResultResponse`
 
-#### Config
-- `AuditConfig`
-  - Bean `WebClient` para RAG
-  - Propiedades en `application.yml`: `rag.tariff.url`, `rag.duplicates.url`, timeout 5s
 
-### Integración con Servicios Externos
-| Servicio | Endpoint | Método | Propósito |
-|----------|----------|--------|-----------|
-| RAG | `/v1/tariff/query` | POST | Obtener `tariffPrice` por descripción |
-| RAG | `/v1/history/duplicates` | POST | Verificar duplicados en historial |
 
 ### Notas de Implementación
 - Deltas se calculan solo si `tariffPrice != null`
-- Si RAG no responde → fallback: estado `UNJUSTIFIED`, no lanzar excepción al cliente
+- Si el VectorStore no retorna coincidencias → fallback: estado `UNJUSTIFIED`, no lanzar excepción al cliente
 - Comparación de `description` para duplicados: case-insensitive
 - Usar `BigDecimal` — nunca `double` en cálculos monetarios
-- DTOs como Java 21 Records con Bean Validation
+- DTOs como Java 17 Records con Bean Validation
 - Inyección por constructor en todos los componentes
 
 ---
@@ -207,8 +196,6 @@ public enum FindingType {
 ### DTO
 - [ ] Crear `AuditLineResponse` (Record): `lineId, description, category, unitPrice, tariffPrice, absoluteDelta, percentualDelta, status, tariffReferences`
 - [ ] Crear `AuditResultResponse` (Record): `invoiceId, auditedLines, totalDiscrepancy, duplicatesDetected`
-- [ ] Crear `TariffQueryRequest` (Record): `description`
-- [ ] Crear `DuplicateCheckRequest` (Record): `description, category, claimId`
 
 ### Service
 - [ ] Actualizar entidad `InvoiceLine` con campos: `tariffPrice, absoluteDelta, percentualDelta, tariffReferences, status`
@@ -219,7 +206,3 @@ public enum FindingType {
 - [ ] Crear `AuditController` con `POST /v1/audit/invoice/{invoiceId}`
 - [ ] Inyectar `AuditService` por constructor
 - [ ] Retornar `AuditResultResponse` — status 200, 404 o 503
-
-### Config
-- [ ] Crear `AuditConfig` con bean `WebClient` para RAG
-- [ ] Configurar en `application.yml`: `rag.tariff.url`, `rag.duplicates.url`, timeout 5s
